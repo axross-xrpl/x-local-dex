@@ -1,0 +1,18 @@
+import React from 'react';
+
+interface {{ pascalCase name }}Props {
+  children?: React.ReactNode;
+  className?: string;
+}
+
+export const {{ pascalCase name }}: React.FC<{{ pascalCase name }}Props> = ({
+  children,
+  className,
+  ...props
+}) => {
+  return (
+    <div className={className} {...props}>
+      {children || '{{ pascalCase name }} Component'}
+    </div>
+  );
+};

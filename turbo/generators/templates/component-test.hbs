@@ -1,0 +1,14 @@
+import { render, screen } from '@testing-library/react';
+import { {{ pascalCase name }} } from './{{ kebabCase name }}';
+
+describe('{{ pascalCase name }}', () => {
+  it('renders correctly', () => {
+    render(<{{ pascalCase name }} />);
+    expect(screen.getByText('{{ pascalCase name }} Component')).toBeInTheDocument();
+  });
+
+  it('renders children when provided', () => {
+    render(<{{ pascalCase name }}>Custom content</{{ pascalCase name }}>);
+    expect(screen.getByText('Custom content')).toBeInTheDocument();
+  });
+});
