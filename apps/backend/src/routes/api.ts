@@ -1,4 +1,5 @@
 import express from 'express';
+import { getAccountInfo } from '../components/xrpl';
 
 const router = express.Router();
 
@@ -11,68 +12,26 @@ router.get('/health', (_req, res) => {
   });
 });
 
-// Users endpoint (example)
-router.get('/users', (_req, res) => {
-  const users = [
-    { id: 1, name: 'John Doe', email: 'john@example.com' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com' },
-  ];
-  
-  res.json({
-    success: true,
-    data: users,
-    count: users.length,
-  });
-});
-
-// Get user by ID
-router.get('/users/:id', (req, res) => {
-  const { id } = req.params;
-  const userId = parseInt(id);
-  
-  if (isNaN(userId)) {
-    return res.status(400).json({
+/* XRPL Account Info Endpoint
+// Retrieves account information from the XRPL network
+// Example: GET /api/xrpl/account/rHb9C...
+// Response: { success: true, data: { ...accountInfo } }
+*/
+router.get('/xrpl/account/:address', async (req, res) => {
+  const { address } = req.params;
+  try {
+    const accountInfo = await getAccountInfo(address);
+    res.json({
+      success: true,
+      data: accountInfo,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
       success: false,
-      error: 'Invalid user ID',
+      error: `Failed to retrieve account info: ${errorMessage}`,
     });
   }
-  
-  // Mock user data
-  const user = {
-    id: userId,
-    name: `User ${userId}`,
-    email: `user${userId}@example.com`,
-  };
-  
-  return res.json({
-    success: true,
-    data: user,
-  });
-});
-
-// Create user endpoint
-router.post('/users', (req, res) => {
-  const { name, email } = req.body;
-  
-  if (!name || !email) {
-    return res.status(400).json({
-      success: false,
-      error: 'Name and email are required',
-    });
-  }
-  
-  const newUser = {
-    id: Date.now(),
-    name,
-    email,
-    createdAt: new Date().toISOString(),
-  };
-  
-  return res.status(201).json({
-    success: true,
-    data: newUser,
-    message: 'User created successfully',
-  });
 });
 
 export default router;
