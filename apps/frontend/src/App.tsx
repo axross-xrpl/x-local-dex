@@ -1,6 +1,7 @@
 import { Routes, Route, Link, useLocation } from "react-router-dom";
 import { Header } from "@repo/ui";
 import HomePage from "../pages/HomePage";
+import Wallet from "../pages/Wallet";
 
 const App = () => {
   const location = useLocation();
@@ -9,6 +10,7 @@ const App = () => {
   const navItems = [
     { path: "/", label: "Home" },
     // Add more navigation items here as needed
+    { path: "/wallet", label: "Wallet" },
   ];
 
   return (
@@ -40,6 +42,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<HomePage />} />
           {/* // Add more routes here as needed */}
+          <Route path="/wallet" element={<Wallet />} />
         </Routes>
       </main>
     </div>
