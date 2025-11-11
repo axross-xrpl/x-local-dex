@@ -1,90 +1,39 @@
 import { Xumm } from 'xumm';
+import type { XummTypes } from 'xumm-sdk';
+import type { WalletState, TransactionPayload } from './core';
 
-// Import types from xumm-sdk with the correct structure
-import type { 
-  XummTypes
-} from 'xumm-sdk';
-
-// Custom wallet state type
-export type WalletState = {
-  isConnected: boolean;
-  address?: string;
-  balance?: string;
-  networkType?: string;
-};
-
-// Use XUMM SDK's built-in types
-export type TransactionPayload = XummTypes.XummPostPayloadBodyJson;
 export type XummResponse = XummTypes.XummPostPayloadResponse;
 export type PayloadResult = XummTypes.XummGetPayloadResponse;
 
-// Initialize XUMM instance
 let xummInstance: Xumm | null = null;
 
-// Helper function to get environment variables
 const getEnvVar = (key: string): string => {
-  if (typeof window !== 'undefined') {
-    return (import.meta.env as any)[`VITE_${key}`] || '';
-  }
-  if (typeof process !== 'undefined') {
-    return process.env[key] || '';
-  }
-  return '';
+  return (import.meta.env as any)[`VITE_${key}`] || '';
 };
 
 export const createXummConnection = (apiKey?: string, apiSecret?: string): Xumm => {
   const key = apiKey || getEnvVar('XUMM_API_KEY');
   const secret = apiSecret || getEnvVar('XUMM_API_SECRET');
   
-  console.log('Creating XUMM connection with:', { 
-    hasKey: !!key, 
-    hasSecret: !!secret,
-    runtime: 'browser'
-  });
-  
   if (!xummInstance) {
     xummInstance = new Xumm(key, secret);
   }
-  console.log('XUMM instance created:', xummInstance);
   return xummInstance;
 };
 
 export const connectWallet = async (): Promise<WalletState> => {
   try {
-    console.log('Starting wallet connection...');
     const xumm = createXummConnection();
-    
-    console.log('XUMM Runtime:', xumm.runtime);
-    
-    // Wait for XUMM to be ready
     await xumm.environment.ready;
-    console.log('XUMM environment ready');
 
-    
-    // Check if we're in browser environment
     if (xumm.runtime && typeof xumm.runtime === 'object' && 'browser' in xumm.runtime) {
-      console.log('Detected browser environment');
-      
       try {
-        // Check if authorize method exists
         if (typeof xumm.authorize === 'function') {
-          console.log('Using browser OAuth flow...');
           const authResult = await xumm.authorize();
-          console.log('Authorization result:', authResult);
           
           if (authResult && typeof authResult === 'object' && !('message' in authResult)) {
-            // Successfully authorized
-            console.log('Successfully authorized, getting user info...');
-            console.log('xumm.user:', xumm.user);
-            
-            // Wait for user data to be available
             const account = await xumm.user.account;
             const networkType = await xumm.user.networkType;
-            
-            console.log('User account:', account);
-            console.log('Network type:', networkType);
-            const walletInfo = await getWalletInfo();
-            console.log('User wallet info:', walletInfo);
             
             if (account) {
               return {
@@ -95,33 +44,25 @@ export const connectWallet = async (): Promise<WalletState> => {
             }
           }
         } else {
-          console.log('authorize method not available, falling back to payload method');
           return await createPayloadFlow(xumm);
         }
         
         return { isConnected: false };
       } catch (authError) {
         console.error('Authorization error:', authError);
-        console.log('Falling back to payload method');
         return await createPayloadFlow(xumm);
       }
     } else {
-      // For non-browser environments or fallback, use payload method
-      console.log('Using payload method...');
       return await createPayloadFlow(xumm);
     }
-
   } catch (error) {
     console.error('Wallet connection failed:', error);
     return { isConnected: false };
   }
 };
 
-// Separate function for payload-based flow
 const createPayloadFlow = async (xumm: Xumm): Promise<WalletState> => {
   try {
-    console.log('Creating SignIn payload...');
-    
     if (!xumm.payload) {
       throw new Error('Payload service not available');
     }
@@ -135,9 +76,6 @@ const createPayloadFlow = async (xumm: Xumm): Promise<WalletState> => {
     if (!payload) {
       throw new Error('Failed to create payload');
     }
-
-    console.log('Payload created:', payload);
-    console.log('Scan QR or open in XUMM:', payload.next.always);
     
     return new Promise<WalletState>((resolve) => {
       let resolved = false;
@@ -148,13 +86,10 @@ const createPayloadFlow = async (xumm: Xumm): Promise<WalletState> => {
       }
       
       xumm.payload.subscribe(payload.uuid, async (event: any) => {
-        console.log('Subscription event:', event);
-        
         if (resolved) return;
         
         if (event.data.signed === true) {
           resolved = true;
-          console.log('Payload signed successfully');
           
           try {
             const walletInfo = await getWalletInfo();
@@ -172,11 +107,9 @@ const createPayloadFlow = async (xumm: Xumm): Promise<WalletState> => {
         }
       });
 
-      // Timeout after 2 minutes
       setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.log('Connection timeout');
           resolve({ isConnected: false });
         }
       }, 2 * 60 * 1000);
@@ -192,13 +125,11 @@ export const getWalletInfo = async (): Promise<Partial<WalletState>> => {
     const xumm = createXummConnection();
     
     if (!xumm.user) {
-      console.warn('User service not available');
       return {};
     }
     
     const account = await xumm.user.account;
     const networkType = await xumm.user.networkType;
-    console.log('Retrieved wallet info:', { account, networkType });
     
     if (account) {
       return {
@@ -222,11 +153,9 @@ export const logout = async (): Promise<void> => {
       await xumm.logout();
     }
     
-    xummInstance = null; // Reset instance
-    console.log('Logged out successfully');
+    xummInstance = null;
   } catch (error) {
     console.error('Logout failed:', error);
-    // Still reset instance even if logout fails
     xummInstance = null;
   }
 };
@@ -252,23 +181,6 @@ export const signTransaction = async (payload: TransactionPayload): Promise<Xumm
   }
 };
 
-export const createPaymentTransaction = (
-  fromAccount: string,
-  toAccount: string,
-  amount: string
-): TransactionPayload => {
-  
-  return {
-    txjson: {
-      TransactionType: 'Payment',
-      Account: fromAccount,
-      Destination: toAccount,
-      Amount: amount
-    }
-  };
-};
-
-// Helper function to check if wallet is connected
 export const isWalletConnected = async (): Promise<boolean> => {
   try {
     const walletInfo = await getWalletInfo();
@@ -278,7 +190,6 @@ export const isWalletConnected = async (): Promise<boolean> => {
   }
 };
 
-// Helper function to get current wallet address
 export const getCurrentWalletAddress = async (): Promise<string | null> => {
   try {
     const walletInfo = await getWalletInfo();
@@ -288,7 +199,6 @@ export const getCurrentWalletAddress = async (): Promise<string | null> => {
   }
 };
 
-// Add this function to your wallet.ts file
 export const waitForTransactionResult = async (payloadUuid: string): Promise<any> => {
   try {
     const xumm = createXummConnection();
@@ -306,9 +216,9 @@ export const waitForTransactionResult = async (payloadUuid: string): Promise<any
       }
       
       xumm.payload.subscribe(payloadUuid, (event: any) => {
-        console.log('Transaction subscription event:', event);
-        
         if (resolved) return;
+
+        console.log('Payload event received:', event);
         
         if (event.data.signed === true) {
           resolved = true;
@@ -319,7 +229,6 @@ export const waitForTransactionResult = async (payloadUuid: string): Promise<any
         }
       });
 
-      // Timeout after 5 minutes
       setTimeout(() => {
         if (!resolved) {
           resolved = true;

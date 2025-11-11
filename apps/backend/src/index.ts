@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import apiRoutes from './routes/api';
+import xummRoutes from './routes/xumm';
 
 // Load environment variables
 dotenv.config();
@@ -26,6 +27,7 @@ app.get('/', (_req, res) => {
 });
 
 app.use('/api', apiRoutes);
+app.use('/api/xumm', xummRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

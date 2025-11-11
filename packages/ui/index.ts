@@ -1,2 +1,2 @@
-// components
-export * from "./components";
+/* components */
+export * from "./src";

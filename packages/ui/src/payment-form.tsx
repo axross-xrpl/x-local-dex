@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { signTransaction, createPaymentTransaction, waitForTransactionResult } from '@repo/utils';
+import { signTransaction, waitForTransactionResult } from '@repo/utils/wallet/browser';
+import { createPaymentTransaction } from '@repo/utils/wallet/core';
 
 interface PaymentFormProps {
   fromAddress: string;
@@ -18,7 +19,6 @@ export const PaymentForm = ({ fromAddress, onSuccess, onError }: PaymentFormProp
 
     setIsLoading(true);
     try {
-      // Convert XRP to drops (1 XRP = 1,000,000 drops)
       const amountInDrops = (parseFloat(amount) * 1000000).toString();
       
       const paymentTx = createPaymentTransaction(fromAddress, toAddress, amountInDrops);
@@ -27,10 +27,10 @@ export const PaymentForm = ({ fromAddress, onSuccess, onError }: PaymentFormProp
       if (result) {
         console.log('Payment initiated:', result.next.always);
         
-        // Wait for transaction result
         const txResult = await waitForTransactionResult(result.uuid);
-        if (txResult.data.signed && txResult.data.txid) {
-          onSuccess?.(txResult.data.txid);
+        console.log('Transaction result:', txResult);
+        if (txResult.signed && txResult.txid) {
+          onSuccess?.(txResult.txid);
         }
       }
     } catch (error) {
