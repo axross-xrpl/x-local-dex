@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "@repo/tailwind-config";
+
+:root{
+    prefix: ui;
+}
