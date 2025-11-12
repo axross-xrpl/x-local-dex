@@ -5,6 +5,7 @@ import type { WalletState, TransactionPayload } from './core';
 export type XummResponse = XummTypes.XummPostPayloadResponse;
 export type PayloadResult = XummTypes.XummGetPayloadResponse;
 
+console.log('Xumm module imported:', Xumm);
 let xummInstance: Xumm | null = null;
 
 const getEnvVar = (key: string): string => {
@@ -16,14 +17,20 @@ export const createXummConnection = (apiKey?: string, apiSecret?: string): Xumm 
   const secret = apiSecret || getEnvVar('XUMM_API_SECRET');
   
   if (!xummInstance) {
+    console.log('Creating new XUMM instance');
     xummInstance = new Xumm(key, secret);
+    console.log('XUMM instance created:', xummInstance);
+  } else {
+    console.log('Reusing existing XUMM instance');
   }
   return xummInstance;
 };
 
 export const connectWallet = async (): Promise<WalletState> => {
+  console.log('Connecting to wallet...');
   try {
     const xumm = createXummConnection();
+    console.log('Xumm instance created:', xumm);
     await xumm.environment.ready;
 
     if (xumm.runtime && typeof xumm.runtime === 'object' && 'browser' in xumm.runtime) {

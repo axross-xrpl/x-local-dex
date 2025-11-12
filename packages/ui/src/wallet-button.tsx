@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { connectWallet, logout } from '@repo/utils/wallet/browser';
+import { useState, useEffect } from 'react';
+import { connectWallet, logout, isWalletConnected, getCurrentWalletAddress } from '@repo/utils/wallet/browser';
 import type { WalletState } from '@repo/utils/wallet/core';
 
 interface WalletButtonProps {
@@ -9,28 +9,84 @@ interface WalletButtonProps {
 }
 
 export const WalletButton = ({ onConnect, onDisconnect, className }: WalletButtonProps) => {
+  console.log('Rendering WalletButton component');
   const [wallet, setWallet] = useState<WalletState>({ isConnected: false });
   const [isConnecting, setIsConnecting] = useState(false);
+  console.log('WalletButton rendered with props:', { onConnect, onDisconnect, className });
+
+  console.log('Current wallet state:', wallet);
+  // Check for existing wallet connection on mount
+  useEffect(() => {
+    console.log('WalletButton mounted');
+    const checkWalletConnection = async () => {
+      try {
+        console.log('Checking wallet connection...');
+        const isConnected = await isWalletConnected();
+        console.log('Wallet connected status:', isConnected);
+        if (isConnected) {
+          const address = await getCurrentWalletAddress();
+          console.log('Wallet address:', address);
+          if (address) {
+            setWallet({
+              isConnected: true,
+              address: address
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check wallet connection:', error);
+      }
+    };
+
+    checkWalletConnection();
+  }, []);
 
   const handleConnect = async () => {
-    setIsConnecting(true);
-    try {
-      const walletState = await connectWallet();
-      setWallet(walletState);
-      if (walletState.isConnected) {
-        onConnect?.(walletState);
-      }
-    } catch (error) {
-      console.error('Failed to connect wallet:', error);
-    } finally {
-      setIsConnecting(false);
+  console.log('[WALLET-BUTTON] handleConnect called');
+  console.log('[WALLET-BUTTON] walletState before connect:', wallet);
+  setIsConnecting(true);
+  
+  try {
+    console.log('[WALLET-BUTTON] Calling connectWallet...');
+    const walletState = await connectWallet();
+    console.log('[WALLET-BUTTON] connectWallet returned:', walletState);
+    
+    setWallet(walletState);
+    
+    if (walletState.isConnected) {
+      console.log('[WALLET-BUTTON] Wallet connected, calling onConnect callback');
+      onConnect?.(walletState);
+    } else {
+      console.log('[WALLET-BUTTON] Wallet connection failed');
     }
-  };
-
-  const handleDisconnect = () => {
+  } catch (error) {
+    console.error('[WALLET-BUTTON] Failed to connect wallet:', error);
+    alert(`Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     setWallet({ isConnected: false });
-    logout();
-    onDisconnect?.();
+  } finally {
+    console.log('[WALLET-BUTTON] Setting isConnecting to false');
+    setIsConnecting(false);
+  }
+};
+
+  const handleDisconnect = async () => {
+    try {
+      // Call logout first to clear XUMM session
+      await logout();
+
+      // Then update local state
+      setWallet({ isConnected: false });
+
+      // Notify parent component
+      onDisconnect?.();
+
+      console.log('Wallet disconnected successfully');
+    } catch (error) {
+      console.error('Failed to disconnect wallet:', error);
+      // Force reset state even if logout fails
+      setWallet({ isConnected: false });
+      onDisconnect?.();
+    }
   };
 
   if (wallet.isConnected) {

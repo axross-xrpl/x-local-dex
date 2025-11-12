@@ -1,3 +1,5 @@
+import type { XummTypes } from 'xumm-sdk';
+
 // Shared types and core logic
 export type WalletState = {
   isConnected: boolean;
@@ -6,15 +8,7 @@ export type WalletState = {
   networkType?: string;
 };
 
-export type TransactionPayload = {
-  txjson: {
-    TransactionType: string;
-    Account?: string;
-    Destination?: string;
-    Amount?: string;
-    [key: string]: any;
-  };
-};
+export type TransactionPayload = XummTypes.XummJsonTransaction | XummTypes.XummPostPayloadBodyJson | XummTypes.XummPostPayloadBodyBlob;
 
 export const createPaymentTransaction = (
   fromAccount: string,

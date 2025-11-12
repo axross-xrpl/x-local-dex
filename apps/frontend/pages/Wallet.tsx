@@ -3,11 +3,19 @@ import { WalletButton, PaymentForm, PaymentFormBackend } from '@repo/ui';
 import type { WalletState } from '@repo/utils/wallet/core';
 import { apiService } from '../src/services/api';
 
+console.log('Wallet page loaded');
+console.log('API Service:', apiService);
+console.log('wallet-button and payment-form components imported successfully');
+console.log('WalletButton component:', WalletButton);
+
 const Wallet = () => {
   const [wallet, setWallet] = useState<WalletState>({ isConnected: false });
   const [useBackend, setUseBackend] = useState(false);
 
+  console.log('walletState in Wallet page:', wallet);
+
   const handleWalletConnect = (walletState: WalletState) => {
+    console.log('Wallet connected:', walletState);
     setWallet(walletState);
   };
 

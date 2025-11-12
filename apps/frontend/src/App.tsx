@@ -1,48 +1,43 @@
-import { Routes, Route, Link, useLocation } from "react-router-dom";
-import { Header } from "@repo/ui";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Header, NavBar } from "@repo/ui";
+import type { NavItem } from "@repo/ui";
 import HomePage from "../pages/HomePage";
 import Wallet from "../pages/Wallet";
+import CredentialCreatePage from "../pages/CredentialCreate";
 
 const App = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const title = import.meta.env.VITE_TITLE || "Frontend App";
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { path: "/", label: "Home" },
     // Add more navigation items here as needed
     { path: "/wallet", label: "Wallet" },
+    { path: "/credential-create", label: "Credential Create" },
   ];
+
+  const handleNavigate = (path: string) => {
+    navigate(path);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center py-4">
-            <Header title= {title} />
-            <div className="flex space-x-6">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    location.pathname === item.path
-                      ? "bg-blue-500 text-white"
-                      : "text-gray-700 hover:text-blue-500 hover:bg-gray-100"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </nav>
+
+      <NavBar 
+        brand={<Header title={title} />}
+        items={navItems}
+        currentPath={location.pathname}
+        onNavigate={handleNavigate}
+      />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
+
         <Routes>
           <Route path="/" element={<HomePage />} />
           {/* // Add more routes here as needed */}
           <Route path="/wallet" element={<Wallet />} />
+          <Route path="/credential-create" element={<CredentialCreatePage />} />
         </Routes>
       </main>
     </div>
