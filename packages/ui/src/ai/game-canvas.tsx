@@ -244,19 +244,20 @@ export function GameCanvas() {
         }
       }
 
-      // カメラ更新
-      cameraPosRef.current.x = canvas.width / 2 - playerPosRef.current.x - 16
-      cameraPosRef.current.y = canvas.height / 2 - playerPosRef.current.y - 16
+      // カメラは固定 (0, 0) - Map doesn't move
+      cameraPosRef.current.x = 0
+      cameraPosRef.current.y = 0
 
       // 描画
       ctx.fillStyle = "#1a1a2e"
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
+      // マップは固定位置に描画
       drawLayer(ctx, mapData.layers.base)
       drawLayer(ctx, mapData.layers.road)
       drawLayer(ctx, mapData.layers.objects)
 
-      // プレイヤー描画
+      // プレイヤーは実際の座標に描画 - Character moves
       if (characterRef.current) {
         ctx.drawImage(
           characterRef.current,
@@ -264,14 +265,14 @@ export function GameCanvas() {
           0,
           32,
           32,
-          playerPosRef.current.x + cameraPosRef.current.x,
-          playerPosRef.current.y + cameraPosRef.current.y,
+          playerPosRef.current.x, // Player's actual X position
+          playerPosRef.current.y, // Player's actual Y position
           32,
           32,
         )
       }
 
-      // NPC描画
+      // NPCは固定位置に描画
       if (npcRef.current) {
         npcs.forEach((npc, index) => {
           const spriteX = 0
@@ -282,8 +283,8 @@ export function GameCanvas() {
             spriteY,
             32,
             32,
-            npc.x * 32 + cameraPosRef.current.x,
-            npc.y * 32 + cameraPosRef.current.y,
+            npc.x * 32, // NPC fixed position
+            npc.y * 32, // NPC fixed position
             32,
             32,
           )
