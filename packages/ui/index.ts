@@ -3,6 +3,8 @@ export { WalletButton } from "./src/wallet-button";
 export { PaymentForm } from "./src/payment-form";
 export { PaymentFormBackend } from "./src/payment-form-backend";
 export { NavBar } from "./src/nav-bar";
-export { CredentialCreate } from "./src/credential-create";
+export { CredentialAccept } from "./src/credential-accept";
 export type { NavItem, NavBarProps } from "./src/nav-bar";
-export type { CredentialCreateData, CredentialCreateProps } from "./src/credential-create";
+export type { CredentialAcceptProps } from "./src/credential-accept";
+
+export type { CredentialAcceptData } from "@repo/utils";
