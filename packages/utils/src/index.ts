@@ -1,3 +1,3 @@
-export * from './test-util';
+export * from './clsx';
 export * from './wallet';
 export * from './credential';

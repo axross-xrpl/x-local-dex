@@ -1,9 +1,14 @@
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Header, NavBar } from "@repo/ui";
 import type { NavItem } from "@repo/ui";
+import GamePage from "../pages/GamePage";
 import HomePage from "../pages/HomePage";
 import Wallet from "../pages/Wallet";
 import CredentialCreatePage from "../pages/CredentialCreate";
+
+import CertificatePage from "../pages/CertificatePage";
+import ExchangePage from "../pages/ExchangePage";
+import MerchantPage from "../pages/MerchantPage";
 
 const App = () => {
   const location = useLocation();
@@ -15,6 +20,7 @@ const App = () => {
     // Add more navigation items here as needed
     { path: "/wallet", label: "Wallet" },
     { path: "/credential-create", label: "Credential Create" },
+    { path: "/game", label: "Game Page" },
   ];
 
   const handleNavigate = (path: string) => {
@@ -38,6 +44,11 @@ const App = () => {
           {/* // Add more routes here as needed */}
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/credential-create" element={<CredentialCreatePage />} />
+          <Route path="/game" element={<GamePage />} />
+
+          <Route path="/certificate" element={<CertificatePage />} />
+          <Route path="/exchange" element={<ExchangePage />} />
+          <Route path="/merchant" element={<MerchantPage />} />
         </Routes>
       </main>
     </div>
