@@ -1,14 +1,15 @@
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { Header, NavBar } from "@repo/ui";
 import type { NavItem } from "@repo/ui";
-import GamePage from "../pages/GamePage";
 import HomePage from "../pages/HomePage";
 import Wallet from "../pages/Wallet";
 import CredentialCreatePage from "../pages/CredentialCreate";
 
-import CertificatePage from "../pages/CertificatePage";
-import ExchangePage from "../pages/ExchangePage";
-import MerchantPage from "../pages/MerchantPage";
+// AI generated pages
+import GamePage from "../pages/ai/GamePage";
+import CertificatePage from "../pages/ai/CertificatePage";
+import ExchangePage from "../pages/ai/ExchangePage";
+import MerchantPage from "../pages/ai/MerchantPage";
 
 const App = () => {
   const location = useLocation();

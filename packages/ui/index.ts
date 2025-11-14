@@ -4,9 +4,12 @@ export { PaymentForm } from "./src/payment-form";
 export { PaymentFormBackend } from "./src/payment-form-backend";
 export { NavBar } from "./src/nav-bar";
 export { CredentialAccept } from "./src/credential-accept";
-export { GameCanvas } from "./src/game-canvas";
-export { WoodenButton } from "./src/wooden-button";
+
 export type { NavItem, NavBarProps } from "./src/nav-bar";
 export type { CredentialAcceptProps } from "./src/credential-accept";
 
 export type { CredentialAcceptData } from "@repo/utils";
+
+/* AI Generated Components */
+export { GameCanvas } from "./src/ai/game-canvas";
+export { WoodenButton } from "./src/ai/wooden-button";
