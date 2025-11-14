@@ -107,10 +107,7 @@ The backend server provides the following endpoints:
 
 - `GET /` - Server status
 - `GET /api/health` - Health check
-- `GET /api/users` - Get all users
-- `GET /api/users/:id` - Get user by ID
-- `POST /api/users` - Create new user
-- `GET /users` - Direct users endpoint
+- `GET /api/xrpl/account/:address` - Get XRPL account info
 
 ## 🎨 Frontend Features
 

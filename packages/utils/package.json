@@ -1,27 +1,41 @@
 {
   "name": "@repo/utils",
   "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./wallet": {
+      "import": "./src/wallet/index.ts",
+      "types": "./src/wallet/index.ts"
+    },
+    "./wallet/browser": {
+      "import": "./src/wallet/browser.ts",
+      "types": "./src/wallet/browser.ts"
+    },
+    "./wallet/node": {
+      "import": "./src/wallet/node.ts",
+      "types": "./src/wallet/node.ts"
+    },
+    "./wallet/core": {
+      "import": "./src/wallet/core.ts",
+      "types": "./src/wallet/core.ts"
+    }
+  },
   "scripts": {
     "lint": "eslint \"**/*.ts\""
   },
   "dependencies": {
-    "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
-    "@repo/ui": "*"
+    "xumm": "^1.8.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
-    "@repo/ui": "*"
-  },
-  "peerDependencies": {
-    "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
-    "@repo/ui": "*"
-  },
-  "optionalDependencies": {
-    "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
-    "@repo/ui": "*"
+    "eslint": "^8.57.0",
+    "typescript": "^5.0.0"
   }
 }

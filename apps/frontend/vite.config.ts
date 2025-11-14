@@ -7,4 +7,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  optimizeDeps: {
+    force: true,
+    include: ['@repo/ui']
+  }
 });
