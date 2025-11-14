@@ -1,7 +1,4 @@
-import { useState } from 'react';
 import { CredentialAccept  } from '@repo/ui';
-import type { CredentialAcceptData } from '@repo/ui';
-import type { WalletState } from '@repo/utils/wallet/core';
 
 function CredentialPage() {
   const handleCredentialAccepted = (txHash: string, data: any) => {
