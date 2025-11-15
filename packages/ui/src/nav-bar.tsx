@@ -22,7 +22,7 @@ export const NavBar = ({
   className = "" 
 }: NavBarProps) => {
   return (
-    <nav className={`bg-white shadow-lg ${className}`}>
+    <nav className={`bg-yellow-500 shadow-lg ${className}`}>
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center py-4">
           {brand && (
