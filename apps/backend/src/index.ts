@@ -8,6 +8,7 @@ import credentialRoutes from './routes/createCredential';
 import credentialListRoutes from './routes/credentialList';
 import balancesRouter from "./routes/balances";
 import rateRoutes from "./routes/rate";
+import trustlineRoutes from "./routes/trustline";
 
 // Load environment variables
 dotenv.config();
@@ -36,6 +37,7 @@ app.use('/api', credentialListRoutes);
 app.use('/api/xumm', xummRoutes);
 app.use("/api", balancesRouter);
 app.use("/api", rateRoutes);
+app.use("/api", trustlineRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

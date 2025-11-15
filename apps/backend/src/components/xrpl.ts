@@ -1,5 +1,9 @@
 import * as xrpl from "xrpl";
 import dotenv from "dotenv";
+import {
+  TARGET_TRUSTLINE_CURRENCIES,
+  TrustlineInfo,
+} from "@repo/utils";
 dotenv.config();
 
 const XRPL_ENDPOINT = process.env.XRPL_ENDPOINT!;
@@ -129,6 +133,55 @@ export async function getAccountBalances(address: string): Promise<AccountBalanc
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to get account balances: ${errorMessage}`);
+  } finally {
+    await client.disconnect();
+  }
+}
+
+/**
+ * 指定アドレスのトラストライン情報を取得
+ * @param address 
+ * @returns 
+ */
+export async function getAccountTrustlines(address: string): Promise<{
+  address: string;
+  trustlines: TrustlineInfo[];
+}> {
+  const client = createClient();
+  await client.connect();
+  
+  try {
+    const response = await client.request({
+      command: "account_lines",
+      account: address,
+      ledger_index: "validated" as const,
+    });
+
+    const lines = (response.result as any).lines as {
+      currency: string;
+      account: string; // issuer
+      balance: string;
+      limit: string;
+    }[];
+
+    // 通貨コードで NJP のみフィルタ
+    const trustlines: TrustlineInfo[] = lines
+      .filter((line) => TARGET_TRUSTLINE_CURRENCIES.includes(line.currency as any))
+      .map((line) => ({
+        currency: line.currency,
+        issuer: line.account,
+        balance: line.balance,
+        limit: line.limit,
+      }));
+
+    return {
+      address,
+      trustlines,
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to get account trustlines: ${errorMessage}`);
   } finally {
     await client.disconnect();
   }
