@@ -2,7 +2,6 @@ import { CredentialAccept  } from '@repo/ui';
 
 function CredentialPage() {
   const handleCredentialAccepted = (txHash: string, data: any) => {
-    console.log('Credential accepted:', txHash, data);
   };
 
   return (

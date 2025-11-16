@@ -9,23 +9,15 @@ interface WalletButtonProps {
 }
 
 export const WalletButton = ({ onConnect, onDisconnect, className }: WalletButtonProps) => {
-  console.log('Rendering WalletButton component');
   const [wallet, setWallet] = useState<WalletState>({ isConnected: false });
   const [isConnecting, setIsConnecting] = useState(false);
-  console.log('WalletButton rendered with props:', { onConnect, onDisconnect, className });
-
-  console.log('Current wallet state:', wallet);
   // Check for existing wallet connection on mount
   useEffect(() => {
-    console.log('WalletButton mounted');
     const checkWalletConnection = async () => {
       try {
-        console.log('Checking wallet connection...');
         const isConnected = await isWalletConnected();
-        console.log('Wallet connected status:', isConnected);
         if (isConnected) {
           const address = await getCurrentWalletAddress();
-          console.log('Wallet address:', address);
           if (address) {
             setWallet({
               isConnected: true,
@@ -42,29 +34,22 @@ export const WalletButton = ({ onConnect, onDisconnect, className }: WalletButto
   }, []);
 
   const handleConnect = async () => {
-  console.log('[WALLET-BUTTON] handleConnect called');
-  console.log('[WALLET-BUTTON] walletState before connect:', wallet);
   setIsConnecting(true);
   
   try {
-    console.log('[WALLET-BUTTON] Calling connectWallet...');
     const walletState = await connectWallet();
-    console.log('[WALLET-BUTTON] connectWallet returned:', walletState);
     
     setWallet(walletState);
     
     if (walletState.isConnected) {
-      console.log('[WALLET-BUTTON] Wallet connected, calling onConnect callback');
       onConnect?.(walletState);
     } else {
-      console.log('[WALLET-BUTTON] Wallet connection failed');
     }
   } catch (error) {
     console.error('[WALLET-BUTTON] Failed to connect wallet:', error);
     alert(`Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     setWallet({ isConnected: false });
   } finally {
-    console.log('[WALLET-BUTTON] Setting isConnecting to false');
     setIsConnecting(false);
   }
 };
@@ -80,7 +65,6 @@ export const WalletButton = ({ onConnect, onDisconnect, className }: WalletButto
       // Notify parent component
       onDisconnect?.();
 
-      console.log('Wallet disconnected successfully');
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
       // Force reset state even if logout fails
