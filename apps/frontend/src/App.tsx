@@ -17,6 +17,8 @@ import GamePage from "../pages/ai/GamePage";
 import CertificatePage from "../pages/ai/CertificatePage";
 import ExchangePage from "../pages/ai/ExchangePage";
 import MerchantPage from "../pages/ai/MerchantPage";
+import IssuePage from "../pages/ai/IssuePage";
+
 
 const App = () => {
   const location = useLocation();
@@ -30,6 +32,8 @@ const App = () => {
     // { path: "/wallet", label: "Wallet" },
     // { path: "/credential-create", label: "Credential Create" },
     // { path: "/game", label: "Game Page" },
+    { path: "/issue-xjpy", label: "事前準備" },
+
   ];
 
   const handleNavigate = (path: string) => {
@@ -111,6 +115,7 @@ const App = () => {
 
           {/* Catch all - redirect to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="/issue-xjpy" element={<IssuePage />} />
         </Routes>
       </main>
     </div>
