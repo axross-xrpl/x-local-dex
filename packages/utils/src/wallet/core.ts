@@ -30,7 +30,7 @@ export interface CredentialMetadata {
   expireDate?: string;
   type: string;
   location?: string;
-  rate?: number;
+  rate?: string;
 }
 
 export const createCredentialTransaction = (

@@ -28,9 +28,11 @@
     "lint": "eslint \"**/*.ts\""
   },
   "dependencies": {
-    "xumm": "^1.8.0",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^3.3.1"
+    "pinata": "^2.5.1",
+    "tailwind-merge": "^3.3.1",
+    "xrpl": "^4.4.3",
+    "xumm": "^1.8.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",

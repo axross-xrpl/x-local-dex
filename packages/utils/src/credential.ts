@@ -1,16 +1,11 @@
 import { signTransaction, waitForTransactionResult } from './wallet/browser';
-import type { WalletState } from './wallet/core';
+import type { WalletState, CredentialMetadata } from './wallet/core';
+import * as xrpl from 'xrpl';
 
 export interface CredentialCreateRequest {
   subject: string;
   credentialType: string;
-  metadata?: {
-    name: string;
-    type: string;
-    location?: string;
-    expireDate?: string;
-    rate?: number;
-  };
+  uri: string; // IPFS URL
 }
 
 export interface CredentialAcceptData {
@@ -21,7 +16,14 @@ export interface CredentialAcceptResult {
   success: boolean;
   txHash?: string;
   error?: string;
+  qrUrl?: string;      // Add QR code URL
+  deepLink?: string;   // Add deep link
+  uuid?: string;      // Add payload UUID
 }
+
+const stringToHex = (str: string): string => {
+  return xrpl.convertStringToHex(str);
+};
 
 // Get system issuer address from backend
 export const getSystemIssuer = async (): Promise<string> => {
@@ -40,17 +42,54 @@ export const getSystemIssuer = async (): Promise<string> => {
   }
 };
 
+// Upload metadata to IPFS and get URL
+export const uploadCredentialMetadata = async (
+  metadata: CredentialMetadata
+): Promise<string> => {
+  try {
+    console.log('[CREDENTIAL] Uploading metadata to IPFS:', metadata);
+    
+    const response = await fetch('http://localhost:3001/api/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jsonData: metadata }),
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to upload metadata to IPFS');
+    }
+
+    console.log('[CREDENTIAL] Metadata uploaded, URL:', data.data.url);
+    return data.data.url;
+  } catch (error) {
+    console.error('[CREDENTIAL] Failed to upload metadata to IPFS:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to upload metadata');
+  }
+};
+
 export const requestCredentialCreation = async (
   request: CredentialCreateRequest
 ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
   try {
+    console.log('[CREDENTIAL] Requesting credential creation:', request);
+
+    const uriHex = stringToHex(request.uri);
+    const credentialTypeHex = stringToHex(request.credentialType);
     
     const response = await fetch('http://localhost:3001/api/credential', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify({
+        subject: request.subject,
+        credentialType: credentialTypeHex,
+        uri: uriHex
+      }),
     });
 
     const data = await response.json();
@@ -75,12 +114,45 @@ export const requestCredentialCreation = async (
   }
 };
 
+// Full flow: Upload metadata to IPFS, then create credential
+export const createCredentialWithMetadata = async (
+  subject: string,
+  credentialType: string,
+  metadata: CredentialMetadata
+): Promise<{ success: boolean; txHash?: string; uri?: string; error?: string }> => {
+  try {
+    // Step 1: Upload metadata to IPFS
+    const uri = await uploadCredentialMetadata(metadata);
+    
+    // Step 2: Create credential with the IPFS URI
+    const result = await requestCredentialCreation({
+      subject,
+      credentialType,
+      uri
+    });
+
+    if (result.success) {
+      return {
+        ...result,
+        uri
+      };
+    }
+
+    return result;
+  } catch (error) {
+    console.error('[CREDENTIAL] Failed to create credential with metadata:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create credential'
+    };
+  }
+};
+
 // Accept credential (Full flow: Step 1 - Create, Step 2 - Accept)
 export const acceptCredential = async (
   wallet: WalletState,
   credentialData: CredentialAcceptData
 ): Promise<CredentialAcceptResult> => {
-
   if (!wallet.isConnected || !wallet.address) {
     return {
       success: false,
@@ -92,62 +164,39 @@ export const acceptCredential = async (
     // Step 1: Get system issuer
     const systemIssuer = await getSystemIssuer();
 
-    // Step 2: Request credential creation from system
-    const createResult = await requestCredentialCreation({
-      subject: wallet.address,
-      credentialType: credentialData.credentialType,
-      metadata: {
-        name: `Credential for ${wallet.address}`,
-        type: credentialData.credentialType
-      }
-    });
-
-    if (!createResult.success) {
-      console.error('[CREDENTIAL-ACCEPT] Failed to create credential:', createResult.error);
-      return {
-        success: false,
-        error: createResult.error || 'Failed to create credential'
-      };
-    }
-
-
-    // Step 3: Wait for credential to be confirmed on ledger
+    // Step 2: Wait for credential to be confirmed on ledger
     await new Promise(resolve => setTimeout(resolve, 5000));
 
-    // Step 4: User accepts the credential via XUMM
+    const credentialTypeHex = stringToHex(credentialData.credentialType);
+
+    // Step 3: User accepts the credential via XUMM
     const txjson: any = {
       TransactionType: 'CredentialAccept',
       Account: wallet.address, // The subject who is accepting
       Issuer: systemIssuer, // The system account that created the credential
-      CredentialType: credentialData.credentialType,
+      CredentialType: credentialTypeHex,
     };
 
+    console.log('[CREDENTIAL-ACCEPT] Signing transaction:', txjson);
 
     // Sign transaction with XUMM - this will wait for user to sign
     const result = await signTransaction({ txjson });
+    console.log('[CREDENTIAL-ACCEPT] Sign transaction result:', result);
 
-    if (!result) {
+    if (!result || !result.uuid || !result.refs?.qr_png || !result.next?.always) {
       return {
         success: false,
         error: 'Failed to create transaction payload'
       };
     }
 
-    // Wait for user to sign the transaction
-    const payloadResult = await waitForTransactionResult(result.uuid);
-
-    // Check if transaction was signed
-    if (payloadResult.meta.signed === true) {
-      return {
-        success: true,
-        txHash: payloadResult.response.txid
-      };
-    } else {
-      return {
-        success: false,
-        error: 'Transaction was rejected or not signed'
-      };
-    }
+    // Return QR code and deep link immediately
+    return {
+      success: true,
+      qrUrl: result.refs.qr_png,
+      deepLink: result.next.always,
+      uuid: result.uuid
+    };
   } catch (error) {
     console.error('[CREDENTIAL-ACCEPT] ❌ Error:', error);
     return {
