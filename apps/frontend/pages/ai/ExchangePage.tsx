@@ -141,7 +141,7 @@ export default function ExchangePage() {
     }
   }
 
-  // 証明書一覧取得（② GET /api/credentials/:address）
+  // 証明書一覧取得（GET /api/credentials/:address）
   const fetchCertificates = async (address: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/credentials/${address}`)
@@ -245,6 +245,7 @@ export default function ExchangePage() {
           currency: "NJP",
           issuer: NJP_ISSUER,
           limit: 1000000000,
+          userToken: USER_TOKEN,
         }),
       })
 
@@ -271,9 +272,7 @@ export default function ExchangePage() {
         limit: number
       }
 
-      // XUMM を別タブで開く（デモとしてはこれでOK）
-      window.open(data.deepLink, "_blank")
-      setMessage("トラストライン設定用のトランザクションを作成しました。XUMM 上で承認してください。")
+      setMessage("トラストライン設定用のトランザクションを作成しました。XAMAN アプリに通知を送信しました。承認をお願いします。")
 
       // ポーリング開始（承認/拒否を監視）
       startPollingTrustlineStatus(data.uuid)
@@ -435,7 +434,6 @@ const startPollingTrustlineStatus = (uuid: string) => {
         exchangeAmount: number
       }
 
-      // window.open(data.deepLink, "_blank")
       setMessage("交換トランザクションを作成しました。XAMAN アプリに通知を送信しました。承認をお願いします。")
 
       if (!hasReceivedBonus) {
@@ -453,7 +451,7 @@ const startPollingTrustlineStatus = (uuid: string) => {
 
       setExchangeAmount("")
 
-      // push 通知で承認を待つので、deepLink / QR は開かない
+      // ポーリング開始（承認/拒否を監視）
       startPollingPayloadStatus(data.uuid)
 
       // 本当はトランザクション承認後に再取得するひつようがあるが、

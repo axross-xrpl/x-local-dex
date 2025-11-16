@@ -55,11 +55,12 @@ router.get("/trustlines/:address", async (req, res) => {
  */
 router.post("/trustlines/payload", async (req, res) => {
   try {
-    const { address, currency, issuer, limit } = req.body as {
+    const { address, currency, issuer, limit, userToken } = req.body as {
       address?: string;
       currency?: string; // 現段階では "NJP" 前提
       issuer?: string;
       limit?: string | number;
+      userToken?: string;
     };
 
     if (!address || !currency || !issuer || limit === undefined) {
@@ -96,6 +97,7 @@ router.post("/trustlines/payload", async (req, res) => {
       currency,
       issuer,
       limit: limitNum,
+      hasUserToken: !!userToken,
     });
 
     // TrustSet トランザクションの txjson を構築
@@ -113,7 +115,7 @@ router.post("/trustlines/payload", async (req, res) => {
       },
     };
 
-    const payload = await createPayload(txPayload);
+    const payload = await createPayload(txPayload, userToken ? { userToken } : undefined,);
 
     if (!payload) {
       return res.status(500).json({
