@@ -15,6 +15,10 @@
       "import": "./src/wallet/browser.ts",
       "types": "./src/wallet/browser.ts"
     },
+    "./wallet/browser-xjpy": {
+      "import": "./src/wallet/browser-xjpy.ts",
+      "types": "./src/wallet/browser-xjpy.ts"
+    },
     "./wallet/node": {
       "import": "./src/wallet/node.ts",
       "types": "./src/wallet/node.ts"
