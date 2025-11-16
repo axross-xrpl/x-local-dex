@@ -44,7 +44,6 @@ export const requestCredentialCreation = async (
   request: CredentialCreateRequest
 ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
   try {
-    console.log('[CREDENTIAL] Requesting credential creation:', request);
     
     const response = await fetch('http://localhost:3001/api/credential', {
       method: 'POST',
@@ -55,7 +54,6 @@ export const requestCredentialCreation = async (
     });
 
     const data = await response.json();
-    console.log('[CREDENTIAL] Credential creation response:', data);
 
     if (!data.success) {
       return {
@@ -82,9 +80,6 @@ export const acceptCredential = async (
   wallet: WalletState,
   credentialData: CredentialAcceptData
 ): Promise<CredentialAcceptResult> => {
-  console.log('[CREDENTIAL-ACCEPT] Starting credential accept process');
-  console.log('[CREDENTIAL-ACCEPT] Wallet:', wallet);
-  console.log('[CREDENTIAL-ACCEPT] Credential data:', credentialData);
 
   if (!wallet.isConnected || !wallet.address) {
     return {
@@ -95,12 +90,9 @@ export const acceptCredential = async (
 
   try {
     // Step 1: Get system issuer
-    console.log('[CREDENTIAL-ACCEPT] Step 1: Getting system issuer...');
     const systemIssuer = await getSystemIssuer();
-    console.log('[CREDENTIAL-ACCEPT] System issuer:', systemIssuer);
 
     // Step 2: Request credential creation from system
-    console.log('[CREDENTIAL-ACCEPT] Step 2: Requesting credential creation from system...');
     const createResult = await requestCredentialCreation({
       subject: wallet.address,
       credentialType: credentialData.credentialType,
@@ -118,14 +110,11 @@ export const acceptCredential = async (
       };
     }
 
-    console.log('[CREDENTIAL-ACCEPT] Credential created by system, txHash:', createResult.txHash);
 
     // Step 3: Wait for credential to be confirmed on ledger
-    console.log('[CREDENTIAL-ACCEPT] Step 3: Waiting 5 seconds for ledger confirmation...');
     await new Promise(resolve => setTimeout(resolve, 5000));
 
     // Step 4: User accepts the credential via XUMM
-    console.log('[CREDENTIAL-ACCEPT] Step 4: Preparing CredentialAccept transaction...');
     const txjson: any = {
       TransactionType: 'CredentialAccept',
       Account: wallet.address, // The subject who is accepting
@@ -133,12 +122,9 @@ export const acceptCredential = async (
       CredentialType: credentialData.credentialType,
     };
 
-    console.log('[CREDENTIAL-ACCEPT] Transaction JSON:', txjson);
 
     // Sign transaction with XUMM - this will wait for user to sign
-    console.log('[CREDENTIAL-ACCEPT] Opening XUMM for signature...');
     const result = await signTransaction({ txjson });
-    console.log('[CREDENTIAL-ACCEPT] SignTransaction result:', result);
 
     if (!result) {
       return {
@@ -148,13 +134,10 @@ export const acceptCredential = async (
     }
 
     // Wait for user to sign the transaction
-    console.log('[CREDENTIAL] Waiting for user to sign...');
     const payloadResult = await waitForTransactionResult(result.uuid);
-    console.log('[CREDENTIAL] Transaction result:', payloadResult);
 
     // Check if transaction was signed
     if (payloadResult.meta.signed === true) {
-      console.log('[CREDENTIAL] Credential created successfully');
       return {
         success: true,
         txHash: payloadResult.response.txid

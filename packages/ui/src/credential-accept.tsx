@@ -50,7 +50,6 @@ export const CredentialAccept = ({
   }, []);
 
   const handleWalletConnect = async () => {
-    console.log('Connecting wallet...');
     try {
       const walletState = await connectWallet();
       setWallet(walletState);
@@ -63,33 +62,27 @@ export const CredentialAccept = ({
   };
 
   const handleAcceptCredential = async () => {
-    console.log('Accepting credential with data:', formData);
     // Validate form
     const validationErrors = validateCredentialAcceptData(formData);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    console.log('Form data is valid, proceeding to accept credential.');
 
     setIsAccepting(true);
     setErrors({});
 
     try {
       setCurrentStep('creating');
-      console.log('Step 1: System creating credential...');
 
       setCurrentStep('waiting');
-      console.log('Step 2: Waiting for credential confirmation...');
 
       setCurrentStep('accepting');
-      console.log('Step 3: User accepting credential via XUMM...');
 
       // Call the utility function (handles all steps internally)
       const result = await acceptCredential(wallet, formData);
 
       if (result.success && result.txHash) {
-        console.log('Credential accepted successfully:', result.txHash);
         setCurrentStep('done');
         
         // Notify parent component

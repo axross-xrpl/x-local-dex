@@ -29,30 +29,24 @@ export const PaymentFormBackend = ({
       
       const result = await apiService.getPayloadStatus(uuid);
       
-      console.log(`Poll attempt ${i + 1}:`, result);
       
       if (result.success && result.data?.meta) {
         const { signed, resolved } = result.data.meta;
         
-        console.log('Payload status:', { signed, resolved });
         
         // User signed the transaction (signed: true, resolved: true)
         if (signed === true && resolved === true) {
           const txId = result.data.response?.txid;
-          console.log('Transaction signed! TxID:', txId);
           return { success: true, txId };
         }
         
         // User rejected the transaction (signed: false, resolved: true)
         if (signed === false && resolved === true) {
-          console.log('Transaction rejected by user');
           return { success: false, error: 'Transaction was rejected by user' };
         }
         
         // Still waiting (resolved: false or signed: null)
-        console.log('Still waiting for user action...');
       } else {
-        console.log('Invalid response from backend:', result);
       }
       
       // Wait 2 seconds before next poll
@@ -72,7 +66,6 @@ export const PaymentFormBackend = ({
     setStatusMessage('Creating payment...');
 
     try {
-      console.log('Creating payment with:', { fromAddress, toAddress, amount });
       
       // Create payment via backend
       const paymentResult = await apiService.createPayment({
@@ -81,7 +74,6 @@ export const PaymentFormBackend = ({
         amount,
       });
 
-      console.log('Payment creation result:', paymentResult);
 
       if (!paymentResult.success || !paymentResult.data) {
         throw new Error(paymentResult.error || 'Failed to create payment');
@@ -89,7 +81,6 @@ export const PaymentFormBackend = ({
 
       const { uuid, qrUrl: qr, deepLink: link } = paymentResult.data;
       
-      console.log('Payment created:', { uuid, qrUrl: qr, deepLink: link });
       
       setQrUrl(qr);
       setDeepLink(link);

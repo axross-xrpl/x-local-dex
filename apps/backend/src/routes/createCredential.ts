@@ -108,7 +108,6 @@ router.post('/credential', async (req, res) => {
       }
     }
 
-    console.log('[BACKEND] Creating credential directly from system account');
 
     // Connect to XRPL
     const client = new xrpl.Client(XRPL_ENDPOINT);
@@ -117,7 +116,6 @@ router.post('/credential', async (req, res) => {
     try {
       // Get wallet from seed
       const wallet = xrpl.Wallet.fromSeed(SYSTEM_ACCOUNT_SEED);
-      console.log('[BACKEND] System account address:', wallet.address);
 
       // Build CredentialCreate transaction
       const txjson: any = {
@@ -148,19 +146,15 @@ router.post('/credential', async (req, res) => {
         txjson.URI = metadataHex;
       }
 
-      console.log('[BACKEND] Transaction JSON:', txjson);
 
       // Prepare transaction
       const prepared = await client.autofill(txjson);
-      console.log('[BACKEND] Prepared transaction:', prepared);
 
       // Sign transaction
       const signed = wallet.sign(prepared);
-      console.log('[BACKEND] Transaction signed:', signed.hash);
 
       // Submit transaction
       const result = await client.submitAndWait(signed.tx_blob);
-      console.log('[BACKEND] Transaction result:', result);
 
       // Check if transaction was successful
       if (result.result.meta && typeof result.result.meta === 'object' && 'TransactionResult' in result.result.meta) {
@@ -206,10 +200,8 @@ router.get('/credential/:uuid', async (req, res) => {
       });
     }
 
-    console.log('[BACKEND] Checking credential payload status:', uuid);
 
     const status = await getPayloadStatus(uuid);
-    console.log('[BACKEND] Payload status:', status);
 
     res.json({
       success: true,

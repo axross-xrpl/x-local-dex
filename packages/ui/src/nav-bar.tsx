@@ -11,6 +11,7 @@ export interface NavBarProps {
   items: NavItem[];
   currentPath: string;
   onNavigate: (path: string) => void;
+  rightContent?: ReactNode;
   className?: string;
 }
 
@@ -18,20 +19,23 @@ export const NavBar = ({
   brand, 
   items, 
   currentPath, 
-  onNavigate, 
+  onNavigate,
+  rightContent,
   className = "" 
 }: NavBarProps) => {
   return (
     <nav className={`bg-yellow-500 shadow-lg ${className}`}>
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between items-center py-4">
+          {/* Left: Brand/Logo */}
           {brand && (
             <div className="flex-shrink-0">
               {brand}
             </div>
           )}
           
-          <div className="flex space-x-6">
+          {/* Middle: Navigation Buttons */}
+          <div className="flex-1 flex justify-center space-x-6">
             {items.map((item) => (
               <button
                 key={item.path}
@@ -51,6 +55,13 @@ export const NavBar = ({
               </button>
             ))}
           </div>
+
+          {/* Right: Custom Content */}
+          {rightContent && (
+            <div className="flex-shrink-0">
+              {rightContent}
+            </div>
+          )}
         </div>
       </div>
     </nav>

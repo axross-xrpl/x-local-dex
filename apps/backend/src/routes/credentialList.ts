@@ -22,7 +22,6 @@ router.get('/credentials/:address', async (req, res) => {
       });
     }
 
-    console.log('[BACKEND] Fetching accepted credentials for account:', address);
 
     // Connect to XRPL
     const client = new xrpl.Client(XRPL_ENDPOINT);
@@ -37,7 +36,6 @@ router.get('/credentials/:address', async (req, res) => {
         ledger_index: 'validated'
       });
 
-      console.log('[BACKEND] Account objects response:', accountObjects);
 
       // Parse and filter only accepted credentials
       const credentials = accountObjects.result.account_objects
@@ -73,7 +71,6 @@ router.get('/credentials/:address', async (req, res) => {
           };
         });
 
-      console.log('[BACKEND] Accepted credentials:', credentials);
 
       res.json({
         success: true,
@@ -113,7 +110,6 @@ router.get('/credential/:address/:credentialType/:issuer', async (req, res) => {
       });
     }
 
-    console.log('[BACKEND] Fetching specific credential:', { address, credentialType, issuer });
 
     // Connect to XRPL
     const client = new xrpl.Client(XRPL_ENDPOINT);
