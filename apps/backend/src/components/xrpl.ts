@@ -18,8 +18,8 @@ function createClient() {
 }
 
 // 発行体アドレス（NJP / XJP）
-const ISSUER_NJP_ADDRESS = process.env.ISSUER_NJP_ADDRESS;
-const ISSUER_XJP_ADDRESS = process.env.ISSUER_XJP_ADDRESS;
+const SYSTEM_ADDRESS = process.env.SYSTEM_ADDRESS;
+const ISSUER_ADDRESS = process.env.ISSUER_ADDRESS;
 
 // XRP 残高の型
 export interface XrpBalance {
@@ -105,14 +105,14 @@ export async function getAccountBalances(address: string): Promise<AccountBalanc
     // .env の発行体（NJP / XJP）が設定されていればそれだけに絞る
     const issuedBalances: IssuedCurrencyBalance[] = lines
       .filter((line) => {
-        if (!ISSUER_NJP_ADDRESS && !ISSUER_XJP_ADDRESS) {
+        if (!SYSTEM_ADDRESS && !ISSUER_ADDRESS) {
           // フィルタ条件がなければ全部返す
           return true;
         }
 
         const isKnownIssuer =
-          (ISSUER_NJP_ADDRESS && line.account === ISSUER_NJP_ADDRESS) ||
-          (ISSUER_XJP_ADDRESS && line.account === ISSUER_XJP_ADDRESS);
+          (SYSTEM_ADDRESS && line.account === SYSTEM_ADDRESS) ||
+          (ISSUER_ADDRESS && line.account === ISSUER_ADDRESS);
 
         return isKnownIssuer;
       })

@@ -16,27 +16,29 @@ interface Certificate {
   rate?: number
 }
 
-// TODO: 実際にはウォレット状態やコンテキストから取得する
-const USER_ADDRESS = "rPkaCB9kSNrY4btec6tVSNq3NrPr1LLNAy"
+// TODO: 実際にはウォレットやコンテキストから取得する
+const USER_ADDRESS = "rJv2hreZ4JK7aad3k4swdki2EDqbeZ4ZZn"
 
 // TODO: 実際の userToken（XAMAN / XUMM連携時に得られる user_token）を取得するように変更する
 const USER_TOKEN = "YOUR_XAMAN_USER_TOKEN_HERE"
 
-// TODO: 実際の NJP 発行体アドレスに差し替える
-const NJP_ISSUER = "rUCTojT2C1CgA5G4uJMkJDEcXMSvBsS1BN"
+// XJP Issuer
+const XJP_ISSUER = "rEe8Yj3hfGpa3nGypC1MJoV7B99Hz3i8at"
 
-// TODO: 環境変数から読む形にしてもOK
-const API_BASE_URL = "http://localhost:3001"
+// NJP Issuer
+const NJP_ISSUER = "rGrGdaArjMRB8dsfwxsH3L87gmqiaK4gQo"
+
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL!
 
 const POLL_INTERVAL_MS = 3000
 
 export default function ExchangePage() {
   const router = useNavigate()
 
-  // 保有通貨（デモ用の残高表示）
+  // 保有通貨（初期値は0、実際の残高は fetchBalances で上書き）
   const [currencies, setCurrencies] = useState<Currency[]>([
-    { name: "日本円", amount: 50000, symbol: "¥" },
-    { name: "ドル", amount: 300, symbol: "$" },
+    { name: "日本円", amount: 0, symbol: "¥" },
+    { name: "ドル", amount: 0, symbol: "$" },
     { name: "地元通貨", amount: 0, symbol: "NJP" },
   ])
 
@@ -106,13 +108,19 @@ export default function ExchangePage() {
         issued: { currency: string; issuer: string; value: string }[]
       }
 
-      const njpBalance =
-        data.issued.find((i) => i.currency === "NJP" && i.issuer === NJP_ISSUER)?.value ?? "0"
+      // XJP = 日本円ステーブルコイン
+      const xjp = data.issued.find((i) => i.currency === "XJP" && i.issuer === XJP_ISSUER,)
+      const xjpBalance = xjp ? Number(xjp.value) : 0
+      // const xjpBalance = data.issued.find((i) => i.currency === "XJP" && i.issuer === XJP_ISSUER)?.value ?? "0"
+      // NJP
+      const njp = data.issued.find((i) => i.currency === "NJP" && i.issuer === NJP_ISSUER,)
+      const njpBalance = njp ? Number(njp.value) : 0
+      // const njpBalance = data.issued.find((i) => i.currency === "NJP" && i.issuer === NJP_ISSUER)?.value ?? "0"
 
       setCurrencies([
-        { name: "日本円", amount: 50000, symbol: "¥" }, // デモ用
+        { name: "日本円", amount: xjpBalance, symbol: "¥" },
         { name: "ドル", amount: 300, symbol: "$" }, // デモ用
-        { name: "地元通貨", amount: Number(njpBalance), symbol: "NJP" },
+        { name: "地元通貨", amount: njpBalance, symbol: "NJP" },
       ])
     } catch (e) {
       console.error("Error fetching balances:", e)
@@ -168,16 +176,23 @@ export default function ExchangePage() {
         }[]
       }
 
+      console.log("[Exchange.tsx] 生の credentials：", data.credentials);
+      console.log(
+        "[Exchange.tsx] metadata 一覧：",
+        data.credentials.map((c) => c.metadata)
+      );
+
       const mapped: Certificate[] = data.credentials
         .filter((c) => c.metadata)
         .map((c) => ({
           code: c.metadata!.name || c.credentialType,
-          date: c.metadata!.expireDate || "",
+          date: c.metadata!.expireDate || "-",
           credentialType: c.credentialType,
           issuer: c.issuer,
           rate: c.metadata!.rate,
         }))
 
+      console.log("[Exchange.tsx] credentials 情報：", mapped);
       setCertificates(mapped)
     } catch (e) {
       console.error("Error fetching credentials:", e)
@@ -186,6 +201,7 @@ export default function ExchangePage() {
 
   // 証明書選択 → レート決定（/api/rate/apply）
   const handleCertificateSelect = async (cert: Certificate) => {
+    console.log("[ExchangePage.tsx] 発行日：", cert.date);
     setSelectedCertificate(cert)
     setShowCertificates(false)
     setMessage("証明書を適用中です...")
@@ -284,43 +300,43 @@ export default function ExchangePage() {
     }
   }
 
-/**
- * トラストライン用のステータス監視
- * @param uuid 
- */
-const startPollingTrustlineStatus = (uuid: string) => {
-  if (pollingRef.current !== null) {
-    window.clearInterval(pollingRef.current)
-  }
+  /**
+   * トラストライン用のステータス監視
+   * @param uuid 
+   */
+  const startPollingTrustlineStatus = (uuid: string) => {
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current)
+    }
 
-  const id = window.setInterval(async () => {
-    try {
-      const status = await fetchPayloadStatus(uuid)
-      const signed = status?.meta?.signed
+    const id = window.setInterval(async () => {
+      try {
+        const status = await fetchPayloadStatus(uuid)
+        const signed = status?.meta?.signed
 
-      if (signed === true) {
-        // サイン済み → Ledger上の trustline を再取得
-        await fetchTrustlines(USER_ADDRESS)
+        if (signed === true) {
+          // サイン済み → Ledger上の trustline を再取得
+          await fetchTrustlines(USER_ADDRESS)
 
-        setMessage("トラストラインが正常に設定されました ✅")
-        window.clearInterval(id)
-        pollingRef.current = null
-      } else if (signed === false) {
-        setMessage("トラストライン設定は拒否されました ❌")
+          setMessage("トラストラインが正常に設定されました ✅")
+          window.clearInterval(id)
+          pollingRef.current = null
+        } else if (signed === false) {
+          setMessage("トラストライン設定は拒否されました ❌")
+          window.clearInterval(id)
+          pollingRef.current = null
+        }
+        // null の間は待つだけ
+      } catch (e) {
+        console.error(e)
+        setMessage("トラストライン設定の承認状況の取得に失敗しました")
         window.clearInterval(id)
         pollingRef.current = null
       }
-      // null の間は待つだけ
-    } catch (e) {
-      console.error(e)
-      setMessage("トラストライン設定の承認状況の取得に失敗しました")
-      window.clearInterval(id)
-      pollingRef.current = null
-    }
-  }, 3000)
+    }, 3000)
 
-  pollingRef.current = id
-}
+    pollingRef.current = id
+  }
 
   /**
    * ペイロードステータス取得
@@ -353,10 +369,12 @@ const startPollingTrustlineStatus = (uuid: string) => {
 
         if (signed === true) {
           setMessage("トランザクションが承認されました ✅")
+
+          // 最新残高を取得して画面を上書き
+          await fetchBalances(USER_ADDRESS)
+          
           window.clearInterval(id)
           pollingRef.current = null
-          // TODO: 必要ならここで残高再取得
-          // await fetchBalances(USER_ADDRESS)
         } else if (signed === false) {
           setMessage("トランザクションは拒否されました ❌")
           window.clearInterval(id)
@@ -409,11 +427,15 @@ const startPollingTrustlineStatus = (uuid: string) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          fromAddress: USER_ADDRESS,
-          toAddress: NJP_ISSUER,
-          baseAmount: amount,
-          rate: exchangeRate,
-          userToken: USER_TOKEN,
+          fromAddress: USER_ADDRESS,  // 送信元アカウント（ユーザー）
+          toAddress: NJP_ISSUER,      // 受け取り側アカウント（NJPの発行者 = SYSTEM_ADDRESS）
+          fromCurrency: "XJP",
+          fromIssuer: XJP_ISSUER,    // 交換元トークン（XJP）
+          toCurrency: "NJP",
+          toIssuer: NJP_ISSUER,       // 交換先トークン（NJP）
+          baseAmount: amount,         // ベース金額
+          rate: exchangeRate,         // レート
+          userToken: USER_TOKEN,      // XAMANへのプッシュ通知用
         }),
       })
 

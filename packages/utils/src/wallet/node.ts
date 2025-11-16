@@ -28,27 +28,31 @@ export const createPayload = async (payload: TransactionPayload, options?: { use
       throw new Error('Payload service not available');
     }
 
+    console.log("[XUMM DEBUG] tx payload:", JSON.stringify(payload, null, 2));
+
     let result: XummResponse | null = null;
 
     // userToken があるときだけ、第2引数に user_token を渡す
     if (options?.userToken) {
-      result = await xumm.payload.create(
+      result = (await xumm.payload.create(
         payload as XummTypes.XummPostPayloadBodyJson,
         { user_token: options.userToken } as any
-      ) as XummResponse;
+      )) as XummResponse;
     } else {
-      result = await xumm.payload.create(
+      result = (await xumm.payload.create(
         payload as XummTypes.XummPostPayloadBodyJson
-      ) as XummResponse;
+      )) as XummResponse;
     }
+
+    console.log("[XUMM DEBUG] create result:", JSON.stringify(result, null, 2));
 
     if (!result) {
       throw new Error('Failed to create transaction payload');
     }
 
-    return result as XummResponse;
+    return result;
   } catch (error) {
-    console.error('Payload creation failed:', error);
+    console.error('Payload creation failed (raw error):', error);
     return null;
   }
 };

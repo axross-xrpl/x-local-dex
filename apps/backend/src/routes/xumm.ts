@@ -10,6 +10,10 @@ const router = express.Router();
 type ExchangeRequestBody = {
   fromAddress?: string;
   toAddress?: string;
+  fromCurrency?: string;
+  fromIssuer?: string;
+  toCurrency?: string;
+  toIssuer?: string;
   baseAmount?: string | number;
   rate?: string | number;
   userToken?: string;
@@ -84,6 +88,10 @@ router.post("/exchange", async (req, res) => {
   const {
     fromAddress,  // ユーザーのアドレス
     toAddress,    // オペレーターのアドレス
+    fromCurrency,
+    fromIssuer,
+    toCurrency,
+    toIssuer,
     baseAmount,
     rate,
     userToken
@@ -120,16 +128,45 @@ router.post("/exchange", async (req, res) => {
     // 交換後金額
     const exchangeAmount = baseAmountNum * rateNum;
 
-    // XRP → drops に変換
-    const amountInDrops = Math.round(exchangeAmount * 1_000_000).toString();
+    // IOU 交換かどうかの判定
+    const isIouExchange = !!fromCurrency && !!fromIssuer && !!toCurrency && !!toIssuer;
 
-    const paymentTx = createPaymentTransaction(
-      fromAddress,
-      toAddress,
-      amountInDrops
-    );
+    let paymentTx: any;
 
-    const payload = await createPayload(paymentTx, { userToken });
+    if (isIouExchange) {
+      // XJP → NJP（IOU）のPaymentを構築
+      paymentTx = {
+        txjson: {
+          TransactionType: "Payment" as const,
+          Account: fromAddress,
+          Destination: toAddress,
+          Amount: {
+            currency: toCurrency,
+            issuer: toIssuer,
+            value: exchangeAmount.toString(),    // 例: 120 (NJP)
+          },
+          SendMax: {
+            currency: fromCurrency,
+            issuer: fromIssuer,
+            value: baseAmountNum.toString(),     // 例: 100 (XJP)
+          },
+          // Flags や Pathfinding を細かく制御する場合はここに追記
+          // Flags: 0,
+        },
+      };
+    } else {
+      // XRP → dropsのPaymentを構築
+      const amountInDrops = Math.round(exchangeAmount * 1_000_000).toString();
+      paymentTx = createPaymentTransaction(
+        fromAddress,
+        toAddress,
+        amountInDrops,
+      );
+    }
+
+    console.log("[EXCHANGE DEBUG] paymentTx:", JSON.stringify(paymentTx, null, 2));
+
+    const payload = await createPayload(paymentTx, userToken ? { userToken } : undefined,);
 
     if (!payload) {
       return res.status(500).json({
@@ -149,6 +186,7 @@ router.post("/exchange", async (req, res) => {
         baseAmount: baseAmountNum,
         rate: rateNum,
         exchangeAmount,
+        // 必要なら fromCurrency / toCurrency もここで返す
       },
     });
   } catch (error) {
