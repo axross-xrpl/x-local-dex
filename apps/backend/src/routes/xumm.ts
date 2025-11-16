@@ -1,29 +1,37 @@
 import express from 'express';
-import { 
-  createPayload, 
-  getPayloadStatus 
+import {
+  createPayload,
+  getPayloadStatus
 } from '@repo/utils/wallet/node';
 import { createPaymentTransaction } from '@repo/utils/wallet/core';
 
 const router = express.Router();
 
+type ExchangeRequestBody = {
+  fromAddress?: string;
+  toAddress?: string;
+  baseAmount?: string | number;
+  rate?: string | number;
+  userToken?: string;
+};
+
 // Create a payment payload
 router.post('/payment', async (req, res) => {
   const { fromAddress, toAddress, amount } = req.body;
-  
+
   try {
     const amountInDrops = (parseFloat(amount) * 1000000).toString();
     const paymentTx = createPaymentTransaction(fromAddress, toAddress, amountInDrops);
-    
+
     const payload = await createPayload(paymentTx);
-    
+
     if (!payload) {
       return res.status(500).json({
         success: false,
         error: 'Failed to create payment payload'
       });
     }
-    
+
     res.json({
       success: true,
       data: {
@@ -44,17 +52,17 @@ router.post('/payment', async (req, res) => {
 // Get payload status - This is what frontend will poll
 router.get('/payload/:uuid', async (req, res) => {
   const { uuid } = req.params;
-  
+
   try {
     const status = await getPayloadStatus(uuid);
-    
+
     if (!status) {
       return res.status(404).json({
         success: false,
         error: 'Payload not found'
       });
     }
-    
+
     // Return the full status object
     res.json({
       success: true,
@@ -78,12 +86,8 @@ router.post("/exchange", async (req, res) => {
     toAddress,    // オペレーターのアドレス
     baseAmount,
     rate,
-  } = req.body as {
-    fromAddress?: string;
-    toAddress?: string;
-    baseAmount?: string | number;
-    rate?: string | number;
-  };
+    userToken
+  } = req.body as ExchangeRequestBody;
 
   try {
     // 必須パラメータチェック
@@ -125,7 +129,7 @@ router.post("/exchange", async (req, res) => {
       amountInDrops
     );
 
-    const payload = await createPayload(paymentTx);
+    const payload = await createPayload(paymentTx, { userToken });
 
     if (!payload) {
       return res.status(500).json({
