@@ -7,6 +7,7 @@ import xummRoutes from './routes/xumm';
 import credentialRoutes from './routes/createCredential';
 import credentialListRoutes from './routes/credentialList';
 import ipfsRoutes from './routes/ipfs';
+import permissionedOffer from './routes/permissionedOffer';
 
 // Load environment variables
 dotenv.config();
@@ -33,6 +34,7 @@ app.use('/api', apiRoutes);
 app.use('/api', credentialRoutes);
 app.use('/api', credentialListRoutes);
 app.use('/api', ipfsRoutes);
+app.use('/api', permissionedOffer);
 app.use('/api/xumm', xummRoutes);
 
 // Error handling middleware
