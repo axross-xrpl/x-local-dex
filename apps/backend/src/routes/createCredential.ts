@@ -50,6 +50,7 @@ router.post('/credential', async (req, res) => {
     const { 
       subject, 
       credentialType, 
+      uri, // Expect hex-encoded URI from frontend
       expire,
       metadata 
     } = req.body;
@@ -79,37 +80,6 @@ router.post('/credential', async (req, res) => {
       });
     }
 
-    // Validate metadata if provided
-    let validatedMetadata: CredentialMetadata | undefined;
-    if (metadata) {
-      if (!metadata.name || !metadata.type) {
-        return res.status(400).json({
-          success: false,
-          error: 'Metadata must include name and type'
-        });
-      }
-      
-      validatedMetadata = {
-        name: metadata.name,
-        type: metadata.type,
-        expireDate: metadata.expireDate,
-        location: metadata.location,
-        rate: metadata.rate !== undefined ? Number(metadata.rate) : undefined
-      };
-
-      // Validate rate if provided
-      if (validatedMetadata.rate !== undefined) {
-        if (validatedMetadata.rate < 0 || validatedMetadata.rate > 5) {
-          return res.status(400).json({
-            success: false,
-            error: 'Rate must be between 0 and 5'
-          });
-        }
-      }
-    }
-
-    console.log('[BACKEND] Creating credential directly from system account');
-
     // Connect to XRPL
     const client = new xrpl.Client(XRPL_ENDPOINT);
     await client.connect();
@@ -117,63 +87,47 @@ router.post('/credential', async (req, res) => {
     try {
       // Get wallet from seed
       const wallet = xrpl.Wallet.fromSeed(SYSTEM_ACCOUNT_SEED);
-      console.log('[BACKEND] System account address:', wallet.address);
 
       // Build CredentialCreate transaction
       const txjson: any = {
         TransactionType: 'CredentialCreate',
         Account: wallet.address,
         Subject: subject,
-        CredentialType: credentialType,
-        Expiration: xrpl.unixTimeToRippleTime(Date.now() + 60000) // 1 second into the future
+        CredentialType: credentialType, // Already in hex from frontend
       };
+
+      // Add URI if provided (already in hex)
+      if (uri) {
+        txjson.URI = uri; // Already hex-encoded from frontend
+      }
 
       // Add optional expire
       if (expire) {
-        txjson.Expire = expire;
+        txjson.Expiration = expire;
       }
-
-      // Add metadata as URI (hex encoded JSON)
-      if (validatedMetadata) {
-        const metadataJson = JSON.stringify({
-          name: validatedMetadata.name,
-          'expire-date': validatedMetadata.expireDate,
-          type: validatedMetadata.type,
-          location: validatedMetadata.location,
-          rate: validatedMetadata.rate
-        });
-        
-        // Convert to hex
-        const metadataHex = Buffer.from(metadataJson, 'utf8').toString('hex').toUpperCase();
-        txjson.URI = metadataHex;
-      }
-
-      console.log('[BACKEND] Transaction JSON:', txjson);
 
       // Prepare transaction
       const prepared = await client.autofill(txjson);
-      console.log('[BACKEND] Prepared transaction:', prepared);
 
       // Sign transaction
       const signed = wallet.sign(prepared);
-      console.log('[BACKEND] Transaction signed:', signed.hash);
 
       // Submit transaction
       const result = await client.submitAndWait(signed.tx_blob);
-      console.log('[BACKEND] Transaction result:', result);
 
       // Check if transaction was successful
       if (result.result.meta && typeof result.result.meta === 'object' && 'TransactionResult' in result.result.meta) {
         const txResult = result.result.meta.TransactionResult;
         
         if (txResult === 'tesSUCCESS') {
+          
           res.json({
             success: true,
             txHash: result.result.hash,
             account: wallet.address,
             subject: subject,
             credentialType: credentialType,
-            metadata: validatedMetadata,
+            uri: uri,
             ledgerIndex: result.result.ledger_index
           });
         } else {
@@ -186,7 +140,7 @@ router.post('/credential', async (req, res) => {
       await client.disconnect();
     }
   } catch (error) {
-    console.error('[BACKEND] Error creating credential:', error);
+    console.error('[CREDENTIAL-CREATE] ❌ Error:', error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create credential'
@@ -206,10 +160,8 @@ router.get('/credential/:uuid', async (req, res) => {
       });
     }
 
-    console.log('[BACKEND] Checking credential payload status:', uuid);
 
     const status = await getPayloadStatus(uuid);
-    console.log('[BACKEND] Payload status:', status);
 
     res.json({
       success: true,

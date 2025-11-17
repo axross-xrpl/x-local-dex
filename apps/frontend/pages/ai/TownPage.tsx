@@ -11,7 +11,7 @@ import { GameCanvas } from "@repo/ui"
 //   ),
 // })
 
-export default function GamePage() {
+export default function TownPage() {
   return (
     <div className="bg-[#fff4e0]">
       <div className="text-xl text-center pt-8">Z県N市</div>

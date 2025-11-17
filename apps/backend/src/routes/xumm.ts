@@ -1,6 +1,6 @@
 import express from 'express';
 import { createPayload, getPayloadStatus } from '@repo/utils/wallet/node';
-import { createPaymentTransaction } from '@repo/utils/wallet/core';
+import { createPaymentTransaction, createPaymentTokenTransaction } from '@repo/utils/wallet/core';
 import { findBestExchangePath } from '../components/xrpl';
 
 const router = express.Router();
@@ -24,7 +24,6 @@ router.post('/payment', async (req, res) => {
   try {
     const amountInDrops = (parseFloat(amount) * 1000000).toString();
     const paymentTx = createPaymentTransaction(fromAddress, toAddress, amountInDrops);
-
     const payload = await createPayload(paymentTx);
 
     if (!payload) {
@@ -34,6 +33,90 @@ router.post('/payment', async (req, res) => {
       });
     }
 
+    res.json({
+      success: true,
+      data: {
+        uuid: payload.uuid,
+        qrUrl: payload.refs.qr_png,
+        deepLink: payload.next.always
+      }
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
+      success: false,
+      error: `Payment creation failed: ${errorMessage}`
+    });
+  }
+});
+
+// Create a payment payload
+router.post('/payment-njp', async (req, res) => {
+  const { fromAddress, toAddress, amount } = req.body;
+  
+  const currency = "NJP";
+  // const toAddress = process.env.SYSTEM_ADDRESS;
+  const issuerAddress = process.env.SYSTEM_ADDRESS;
+
+  if(!toAddress || !issuerAddress){
+    console.error("process.env.SYSTEM_ADDRESS is null");
+    return;
+  }
+
+  try {
+    const paymentTx = createPaymentTokenTransaction(fromAddress, toAddress, currency, issuerAddress, amount);
+    
+    const payload = await createPayload(paymentTx);
+
+    if (!payload) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create payment payload'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        uuid: payload.uuid,
+        qrUrl: payload.refs.qr_png,
+        deepLink: payload.next.always
+      }
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
+      success: false,
+      error: `Payment creation failed: ${errorMessage}`
+    });
+  }
+});
+
+// Create a payment payload
+router.post('/payment-njp', async (req, res) => {
+  const { fromAddress, toAddress, amount } = req.body;
+  
+  const currency = "NJP";
+  // const toAddress = process.env.SYSTEM_ADDRESS;
+  const issuerAddress = process.env.SYSTEM_ADDRESS;
+
+  if(!toAddress || !issuerAddress){
+    console.error("process.env.SYSTEM_ADDRESS is null");
+    return;
+  }
+
+  try {
+    const paymentTx = createPaymentTokenTransaction(fromAddress, toAddress, currency, issuerAddress, amount);
+    
+    const payload = await createPayload(paymentTx);
+    
+    if (!payload) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create payment payload'
+      });
+    }
+    
     res.json({
       success: true,
       data: {

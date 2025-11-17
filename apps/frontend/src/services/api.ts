@@ -93,6 +93,14 @@ class ApiService {
       body: JSON.stringify({ timeoutMs }),
     });
   }
+  // Create payment payload for NJP Token
+  async createPaymentNJP(payload: PaymentPayload): Promise<ApiResponse<PaymentResponse>> {
+    return this.request<PaymentResponse>('/api/xumm/payment-njp', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
 }
 
 export const apiService = new ApiService();

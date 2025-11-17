@@ -352,11 +352,11 @@ export function GameCanvas() {
 
   const handleYes = () => {
     if (dialog.action === "merchant") {
-      router("/merchant")
+      router("/town-n/merchant")
     } else if (dialog.action === "certificate") {
-      router("/certificate")
+      router("/town-n/certificate")
     } else if (dialog.action === "exchange") {
-      router("/exchange")
+      router("/town-n/exchange")
     } else if (dialog.action === "external") {
       window.open("https://www.city.isehara.kanagawa.jp/", "_blank")
     }

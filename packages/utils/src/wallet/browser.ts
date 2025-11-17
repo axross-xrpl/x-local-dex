@@ -5,7 +5,6 @@ import type { WalletState, TransactionPayload } from './core';
 export type XummResponse = XummTypes.XummPostPayloadResponse;
 export type PayloadResult = XummTypes.XummGetPayloadResponse;
 
-console.log('Xumm module imported:', Xumm);
 let xummInstance: Xumm | null = null;
 
 const getEnvVar = (key: string): string => {
@@ -17,20 +16,14 @@ export const createXummConnection = (apiKey?: string, apiSecret?: string): Xumm 
   const secret = apiSecret || getEnvVar('XUMM_API_SECRET');
   
   if (!xummInstance) {
-    console.log('Creating new XUMM instance');
     xummInstance = new Xumm(key, secret);
-    console.log('XUMM instance created:', xummInstance);
-  } else {
-    console.log('Reusing existing XUMM instance');
-  }
+  } 
   return xummInstance;
 };
 
 export const connectWallet = async (): Promise<WalletState> => {
-  console.log('Connecting to wallet...');
   try {
     const xumm = createXummConnection();
-    console.log('Xumm instance created:', xumm);
     await xumm.environment.ready;
 
     if (xumm.runtime && typeof xumm.runtime === 'object' && 'browser' in xumm.runtime) {
@@ -181,7 +174,15 @@ export const signTransaction = async (payload: TransactionPayload): Promise<Xumm
       throw new Error('Failed to create transaction payload');
     }
 
-    return result as XummResponse;
+    // Add QR code and deep link to response
+    const response: XummResponse = {
+      uuid: result.uuid,
+      next: result.next,
+      refs: result.refs,
+      pushed: result.pushed,
+    };
+
+    return response;
   } catch (error) {
     console.error('Transaction signing failed:', error);
     return null;
@@ -225,7 +226,6 @@ export const waitForTransactionResult = async (payloadUuid: string): Promise<any
       xumm.payload.subscribe(payloadUuid, (event: any) => {
         if (resolved) return;
 
-        console.log('Payload event received:', event);
         
         if (event.data.signed === true) {
           resolved = true;

@@ -650,7 +650,7 @@ export default function ExchangePage() {
         </div>
 
         <div className="mt-8 text-center">
-          <WoodenButton onClick={() => router("/")} variant="secondary">
+          <WoodenButton onClick={() => router("/town-n")} variant="secondary">
             🏠 町に戻る
           </WoodenButton>
         </div>

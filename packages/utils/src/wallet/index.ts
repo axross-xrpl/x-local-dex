@@ -3,3 +3,4 @@ export * from './core';
 
 // Platform-specific exports
 export type { XummResponse } from './browser';
+export type * from './browser-xjpy';

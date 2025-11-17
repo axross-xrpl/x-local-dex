@@ -298,3 +298,41 @@ function dropsToXrp(drops: string): string {
   const xrpValue = numeric / 1_000_000;
   return xrpValue.toString();
 }
+
+export async function getAccountLines(address: string) {
+  const client = createClient();
+  await client.connect();
+
+  try {
+    const response = await client.request({
+      command: 'account_lines',
+      account: address
+    });
+    return response;
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to get account balance: ${errorMessage}`);
+  } finally {
+    await client.disconnect();
+  }
+}
+
+export async function payment(address: string) {
+  const client = createClient();
+  await client.connect();
+
+  try {
+    const response = await client.request({
+      command: 'account_lines',
+      account: address
+    });
+    return response;
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to get account balance: ${errorMessage}`);
+  } finally {
+    await client.disconnect();
+  }
+}

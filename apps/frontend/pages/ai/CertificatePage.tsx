@@ -1,30 +1,261 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { WoodenButton } from "@repo/ui"
 import { useNavigate } from "react-router-dom"
+import { useAuth } from "../../src/context/AuthContext"
+import { createCredentialWithMetadata, acceptCredential, hexToString } from "@repo/utils"
+import type { CredentialMetadata } from "@repo/utils/wallet/core"
 
 interface Certificate {
-  code: string
-  date: string
+  name: string
+  rate: string
+  expireDate: string
+}
+
+// Predefined metadata for each code
+const CODE_METADATA: Record<string, CredentialMetadata> = {
+  "CODE1": {
+    name: "観光訪問証明書",
+    type: "観光客",
+    location: "東京都渋谷区",
+    expireDate: "2025-12-31",
+    rate: "1:1"
+  },
+  "CODE2": {
+    name: "探検者証明書",
+    type: "地域探検者",
+    location: "京都市",
+    expireDate: "2026-06-30",
+    rate: "1.5:1"
+  },
+  "CODE3": {
+    name: "ボランティア貢献証明書",
+    type: "地域ボランティア",
+    location: "大阪市",
+    expireDate: "2025-12-31",
+    rate: "2:1"
+  },
+  "CODE4": {
+    name: "グルメレビュアー証明書",
+    type: "飲食店レビュー",
+    location: "福岡市",
+    expireDate: "2026-03-31",
+    rate: "1:1.2"
+  },
+  "CODE5": {
+    name: "イベント参加証明書",
+    type: "イベント参加",
+    location: "札幌市",
+    expireDate: "2025-08-31",
+    rate: "1:1"
+  }
+}
+
+const pollPayloadStatus = async (uuid: string, onSigned: () => void, onError: (msg: string) => void) => {
+  try {
+    for (let i = 0; i < 150; i++) { // Poll for up to 5 minutes
+      const res = await fetch(`http://localhost:3001/api/xumm/payload/${uuid}`)
+      const data = await res.json()
+      if (data.success && data.data?.meta?.signed === true) {
+        onSigned()
+        return
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+    onError("署名がタイムアウトしました")
+  } catch (e) {
+    onError("署名ステータス取得に失敗しました")
+  }
 }
 
 export default function CertificatePage() {
   const router = useNavigate()
+  const { address } = useAuth()
   const [certificates, setCertificates] = useState<Certificate[]>([
-    { code: "VISITOR001", date: "2024-01-15" },
-    { code: "EXPLORER123", date: "2024-02-20" },
   ])
   const [inputCode, setInputCode] = useState("")
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [statusMessage, setStatusMessage] = useState("")
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState("")
+  const [deepLink, setDeepLink] = useState("")
+  const [currentPayloadUuid, setCurrentPayloadUuid] = useState("")
+  const [currentCode, setCurrentCode] = useState("")
+  const [currentUri, setCurrentUri] = useState("")
 
-  const handleRegister = () => {
-    if (inputCode.trim() === "") return
+  const [isCertLoading, setIsCertLoading] = useState(false)
+  const [certError, setCertError] = useState("")
 
-    const newCertificate: Certificate = {
-      code: inputCode.trim(),
-      date: new Date().toISOString().split("T")[0],
+
+  const fetchCertificateInfo = async (uri: string) => {
+    try {
+      const response = await fetch(uri);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch certificate info:', error);
+      return null;
+    }
+  }
+
+  const fetchCertificates = async () => {
+    setIsCertLoading(true)
+    setCertError("")
+    try {
+      const response = await fetch(`http://localhost:3001/api/credentials/${address}`)
+      const data = await response.json()
+      if (data.success && Array.isArray(data.credentials)) {
+        // Fetch rates for all certificates in parallel
+        const fetchedCertificates: Certificate[] = await Promise.all(
+          data.credentials.map(async (cred: any) => {
+            const uri = hexToString(cred.uri) || ""
+            let rate = ""
+            let name = ""
+            let expireDate = ""
+            if (uri) {
+              try {
+                const info = await fetchCertificateInfo(uri)
+                rate = info?.rate || ""
+                name = info?.name || ""
+                expireDate = info?.expireDate || ""
+              } catch {
+                rate = ""
+                name = ""
+                expireDate = ""
+              }
+            }
+            return {
+              name:name,
+              rate: rate,
+              expireDate: expireDate
+            }
+          })
+        )
+        setCertificates(fetchedCertificates)
+        setCertError("")
+      } else {
+        setCertError("証明書の取得に失敗しました")
+      }
+    } catch (e) {
+      setCertError("証明書の取得中にエラーが発生しました")
+    } finally {
+      setIsCertLoading(false)
+    }
+  }
+
+
+  useEffect(() => {
+    if (address) {
+      fetchCertificates();
+    }
+  }, [address]);
+  
+
+  useEffect(() => {
+    if (showQRModal && currentPayloadUuid) {
+      setStatusMessage("⏳ 署名待ち...")
+      pollPayloadStatus(
+        currentPayloadUuid,
+        () => {
+          setShowQRModal(false)
+          setStatusMessage("✅ 署名が完了しました！")
+          handleQRModalClose()
+        },
+        (msg) => {
+          setShowQRModal(false)
+          setStatusMessage(`❌ ${msg}`)
+          setIsProcessing(false)
+        }
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showQRModal, currentPayloadUuid])
+
+  const handleRegister = async () => {
+    if (inputCode.trim() === "") {
+      setStatusMessage("❌ コードを入力してください")
+      return
     }
 
-    setCertificates([...certificates, newCertificate])
-    setInputCode("")
+    if (!address) {
+      setStatusMessage("❌ ウォレットを接続してください")
+      return
+    }
+
+    const code = inputCode.trim().toUpperCase()
+    const metadata = CODE_METADATA[code]
+
+    if (!metadata) {
+      setStatusMessage(`❌ コード "${code}" は無効です。有効なコード: ${Object.keys(CODE_METADATA).join(", ")}`)
+      return
+    }
+
+    setIsProcessing(true)
+    setStatusMessage("📤 IPFS にメタデータをアップロード中...")
+
+    try {
+      // Step 1: Upload metadata to IPFS and create credential
+      setStatusMessage("🔐 クレデンシャルを作成中...")
+      
+      const createResult = await createCredentialWithMetadata(
+        address,
+        code, // Use code as credential type
+        metadata
+      )
+
+      if (!createResult.success) {
+        throw new Error(createResult.error || "Failed to create credential")
+      }
+
+      setCurrentUri(createResult.uri || "")
+      setCurrentCode(code)
+
+      setStatusMessage("⏳ レジャーでの確認を待機中...")
+      
+      // Wait for credential to be confirmed
+      await new Promise(resolve => setTimeout(resolve, 5000))
+
+      // Step 2: Accept the credential (this will show QR code)
+      setStatusMessage("📱 XUMM で資格情報を受け入れ中...")
+      
+      const acceptResult = await acceptCredential(
+        { isConnected: true, address },
+        { credentialType: code }
+      )
+
+      if (!acceptResult.success) {
+        throw new Error(acceptResult.error || "Failed to accept credential")
+      }
+
+      // Show QR code modal
+      if (acceptResult.qrUrl && acceptResult.uuid) {        
+        setQrCodeUrl(acceptResult.qrUrl)
+        setDeepLink(acceptResult.deepLink || "")
+        setCurrentPayloadUuid(acceptResult.uuid)
+        setShowQRModal(true)
+        setStatusMessage("📱 QR コードをスキャンして署名してください")
+      } else {
+        console.log('[CERT-PAGE] No QR URL or UUID in result:', acceptResult)
+        throw new Error("QR コードの生成に失敗しました")
+      }
+
+    } catch (error) {
+      console.error("Failed to register certificate:", error)
+      setStatusMessage(`❌ エラー: ${error instanceof Error ? error.message : "証明書の発行に失敗しました"}`)
+      setIsProcessing(false)
+    }
+    // Don't set isProcessing to false here - wait for user to close modal
+  }
+
+  const handleQRModalClose = () => {
+    setShowQRModal(false)
+    setQrCodeUrl("")
+    setDeepLink("")
+    
+    setCurrentPayloadUuid("")
+    setCurrentCode("")
+    setCurrentUri("")
+    setIsProcessing(false)
+    fetchCertificates()
   }
 
   return (
@@ -39,6 +270,17 @@ export default function CertificatePage() {
           </p>
         </div>
 
+        {/* Status Message */}
+        {statusMessage && (
+          <div className={`mb-6 p-4 rounded-lg text-center font-medium ${
+            statusMessage.includes("✅") ? "bg-green-100 text-green-800" :
+            statusMessage.includes("❌") ? "bg-red-100 text-red-800" :
+            "bg-blue-100 text-blue-800"
+          }`}>
+            {statusMessage}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 左側: 証明書一覧 */}
           <div className="lg:col-span-2">
@@ -47,19 +289,25 @@ export default function CertificatePage() {
                 所有している訪問証明書
               </h2>
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {certificates.map((cert, index) => (
+                {
+                  isCertLoading ? (
+                    <p className="text-amber-700">証明書を読み込み中...</p>
+                  ) : certError ? (
+                    <p className="text-red-600">{certError}</p>
+                  ) : certificates.length === 0 ? (
+                    <p className="text-amber-700">証明書が見つかりません。新しい証明書を登録してください。</p>
+                  )
+                :
+                certificates.map((cert, index) => (
                   <div
                     key={index}
                     className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow"
                   >
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-sm text-amber-700 font-semibold">訪問者コード</p>
-                        <p className="text-xl font-mono font-bold text-amber-900">{cert.code}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-amber-700 font-semibold">訪問日</p>
-                        <p className="text-lg font-mono text-amber-900">{cert.date}</p>
+                        <p className="text-xl text-amber-700 font-semibold">{cert.name}</p>
+                        <p className="text-sm font-mono text-amber-900">通貨交換レート {cert.rate}</p>
+                        <p className="text-sm font-mono text-amber-900">効期限 : {cert.expireDate}</p>
                       </div>
                     </div>
                   </div>
@@ -81,12 +329,21 @@ export default function CertificatePage() {
                     onChange={(e) => setInputCode(e.target.value)}
                     placeholder="任意のコードを入力"
                     className="w-full px-4 py-3 border-2 border-amber-300 rounded-lg focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-amber-900 font-mono"
+                    disabled={isProcessing}
                   />
+                  <p className="text-xs text-amber-700 mt-2">
+                    有効なコード: {Object.keys(CODE_METADATA).join(", ")}
+                  </p>
                 </div>
-                <WoodenButton onClick={handleRegister} variant="primary" className="w-full">
-                  登録する
+                <WoodenButton 
+                  onClick={handleRegister} 
+                  variant="primary" 
+                  className="w-full"
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? "処理中..." : "登録する"}
                 </WoodenButton>
-                <WoodenButton onClick={() => router("/")} variant="secondary" className="w-full">
+                <WoodenButton onClick={() => router("/town-n")} variant="secondary" className="w-full">
                   町に戻る
                 </WoodenButton>
               </div>
@@ -94,6 +351,39 @@ export default function CertificatePage() {
           </div>
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {showQRModal && qrCodeUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-8 max-w-md w-full">
+            <h3 className="text-2xl font-bold text-amber-900 mb-4 text-center">
+              XUMM で署名してください
+            </h3>
+            <div className="bg-white p-4 rounded-lg border-4 border-amber-300 mb-4">
+              <img src={qrCodeUrl} alt="XUMM QR Code" className="w-full" />
+            </div>
+            <p className="text-sm text-gray-600 text-center mb-4">
+              XUMM アプリでこの QR コードをスキャンして、トランザクションに署名してください
+            </p>
+            {deepLink && (
+              <a
+                href={deepLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full bg-blue-500 text-white text-center py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors mb-2"
+              >
+                XUMM アプリで開く
+              </a>
+            )}
+            <button
+              onClick={handleQRModalClose}
+              className="w-full bg-gray-300 text-gray-800 py-3 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

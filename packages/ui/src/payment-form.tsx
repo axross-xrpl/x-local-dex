@@ -25,10 +25,8 @@ export const PaymentForm = ({ fromAddress, onSuccess, onError }: PaymentFormProp
       const result = await signTransaction(paymentTx);
       
       if (result) {
-        console.log('Payment initiated:', result.next.always);
         
         const txResult = await waitForTransactionResult(result.uuid);
-        console.log('Transaction result:', txResult);
         if (txResult.signed && txResult.txid) {
           onSuccess?.(txResult.txid);
         }

@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAccountInfo } from '../components/xrpl';
+import { getAccountInfo, getAccountLines } from '../components/xrpl';
 
 const router = express.Router();
 
@@ -33,5 +33,54 @@ router.get('/xrpl/account/:address', async (req, res) => {
     });
   }
 });
+
+router.get('/njp/balance/:address', async (req, res) => {
+  const { address } = req.params;
+  try {
+    const currency = 'NJP';
+    const response = await getAccountLines(address);
+    const trustlines = response.result.lines;
+
+    for(const line of trustlines) {
+        // if(line.currency === currency){
+        if(line.currency === currency && line.account === process.env.SYSTEM_ADDRESS){
+            res.json({
+              success: true,
+              data: line,
+            });
+            return ;
+        }
+    }
+    res.json({
+      success: false,
+      data: "",
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
+      success: false,
+      error: `Failed to retrieve account info: ${errorMessage}`,
+    });
+  }
+});
+
+router.get('/credentialinfo/:uri', async (req, res) => {
+  const { uri } = req.params;
+  try {
+    const response = await fetch(uri);
+    const data = await response.json();
+    res.json({
+      success: true,
+      data: data,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
+      success: false,
+      error: `Failed to retrieve credential info: ${errorMessage}`,
+    });
+  }
+});
+
 
 export default router;

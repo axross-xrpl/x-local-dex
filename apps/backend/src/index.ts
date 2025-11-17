@@ -9,6 +9,7 @@ import credentialListRoutes from './routes/credentialList';
 import balancesRouter from "./routes/balances";
 import rateRoutes from "./routes/rate";
 import trustlineRoutes from "./routes/trustline";
+import ipfsRoutes from './routes/ipfs';
 
 // Load environment variables
 dotenv.config();
@@ -34,6 +35,7 @@ app.get('/', (_req, res) => {
 app.use('/api', apiRoutes);
 app.use('/api', credentialRoutes);
 app.use('/api', credentialListRoutes);
+app.use('/api', ipfsRoutes);
 app.use('/api/xumm', xummRoutes);
 app.use("/api", balancesRouter);
 app.use("/api", rateRoutes);
