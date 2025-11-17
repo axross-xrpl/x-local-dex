@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { connectWallet } from '@repo/utils/wallet/browser';
+import logo from '/images/lemonex_logo.png';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -32,9 +33,10 @@ const LoginPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-orange-200 via-yellow-100 to-orange-200 flex items-center justify-center p-4">
       <div className="bg-[#fff4e0] rounded-3xl shadow-2xl p-12 max-w-6xl w-full text-center border-4 border-orange-300">
         {/* Title */}
-        <h1 className="text-6xl text-gray-900 mb-8">
-          地方創生DEX
+        <h1 className="text-6xl text-gray-900 mb-8 text-bold">
+          LEMONEX
         </h1>
+        <img src={logo} alt="Logo" className="w-[400px] mx-auto mb-10" />
 
         {/* Subtitle */}
         <p className="text-red-500 text-sm mb-12">
