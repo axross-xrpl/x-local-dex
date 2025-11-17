@@ -27,7 +27,6 @@ const products: Product[] = [
 
 export default function MerchantPage() {
   const [cart, setCart] = useState<CartItem[]>([])
-  const [showPurchaseMessage, setShowPurchaseMessage] = useState(false)
   const [balance, setBalance] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState("")
   const [showQRModal, setShowQRModal] = useState(false)
@@ -94,13 +93,11 @@ export default function MerchantPage() {
     setShowQRModal(false);
     setQrCodeUrl("");
     setDeepLink("");
-
     setStatusMessage(`支払いが完了しました`);
 
     setTimeout(() => setStatusMessage(""), 5000)
-    setCurrentPayloadUuid("");
+    setCurrentPayloadUuid("");  
   }
-
 
   const paymentNJP = async (amount: any) => {
 
@@ -148,18 +145,8 @@ export default function MerchantPage() {
 
     } catch (error) {
       console.error("Failed payment:", error)
-      setStatusMessage(`❌ エラー: ${error instanceof Error ? error.message : "証明書の発行に失敗しました"}`)
-      // setIsProcessing(false)
-    } finally {
-      //   setTimeout(() => {
-      //     setShowPurchaseMessage(false)
-      //     setCart([])
-      // setQrUrl(null);
-      // setDeepLink(null);
-      //   }, 2000);
+      setStatusMessage(`❌ エラー: ${error instanceof Error ? error.message : "決済に失敗しました"}`)
     }
-
-
   }
 
   const addToCart = (product: Product) => {
@@ -330,15 +317,6 @@ export default function MerchantPage() {
             >
               閉じる
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* 購入完了メッセージ */}
-      {showPurchaseMessage && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-          <div className="bg-gradient-to-br from-amber-700 to-amber-800 border-4 border-yellow-500 rounded-lg p-8 shadow-2xl animate-in fade-in zoom-in duration-300">
-            <p className="text-3xl font-bold text-amber-100 text-center">購入しました！</p>
           </div>
         </div>
       )}
