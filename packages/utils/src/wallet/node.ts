@@ -32,13 +32,22 @@ export const createPayload = async (payload: TransactionPayload, options?: { use
 
     let result: XummResponse | null = null;
 
-    // userToken があるときだけ、第2引数に user_token を渡す
+    // userToken があるときだけ、payload 自体の中に user_token を含める
     if (options?.userToken) {
+      // payload オブジェクトを展開し、user_token を追加した新しいオブジェクトを作成
+      const payloadWithToken = {
+        ...(payload as object),
+        user_token: options.userToken
+      };
+
+      console.log("[XUMM DEBUG] Sending payload WITH user_token");
+
       result = (await xumm.payload.create(
-        payload as XummTypes.XummPostPayloadBodyJson,
-        { user_token: options.userToken } as any
+        payloadWithToken as XummTypes.XummPostPayloadBodyJson
       )) as XummResponse;
     } else {
+      console.log("[XUMM DEBUG] Sending payload WITHOUT user_token");
+
       result = (await xumm.payload.create(
         payload as XummTypes.XummPostPayloadBodyJson
       )) as XummResponse;
