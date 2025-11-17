@@ -25,6 +25,28 @@ export const createPaymentTransaction = (
   };
 };
 
+export const createPaymentTokenTransaction = (
+  fromAccount: string,
+  toAccount: string,
+  currency: string,
+  issuerAccount: string,
+  amount: string
+): TransactionPayload => {
+  return {
+    txjson: {
+      TransactionType: 'Payment',
+      Account: fromAccount,
+      Destination: toAccount,
+      Amount: {
+          issuer: issuerAccount,
+          currency: currency,
+          value: amount,
+      },
+
+    }
+  };
+};
+
 export interface CredentialMetadata {
   name: string;
   expireDate?: string;

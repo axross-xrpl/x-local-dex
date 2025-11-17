@@ -1,6 +1,9 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { WoodenButton } from "@repo/ui"
 import { Link } from "react-router-dom"
+import { getWalletInfo, getCurrentWalletAddress } from '@repo/utils/wallet/browser';
+import { apiService } from '../../src/services/api';
+
 
 interface Product {
   id: number
@@ -25,6 +28,139 @@ const products: Product[] = [
 export default function MerchantPage() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [showPurchaseMessage, setShowPurchaseMessage] = useState(false)
+  const [balance, setBalance] = useState<string>('');
+  const [statusMessage, setStatusMessage] = useState("")
+  const [showQRModal, setShowQRModal] = useState(false)
+  const [qrCodeUrl, setQrCodeUrl] = useState("")
+  const [deepLink, setDeepLink] = useState("")
+  const [currentPayloadUuid, setCurrentPayloadUuid] = useState("")
+
+  const pollPayloadStatus = async (uuid: string, onSigned: () => void, onError: (msg: string) => void) => {
+    try {
+      for (let i = 0; i < 150; i++) { // Poll for up to 5 minutes
+        const res = await fetch(`http://localhost:3001/api/xumm/payload/${uuid}`)
+        const data = await res.json()
+        if (data.success && data.data?.meta?.signed === true) {
+          onSigned()
+          return
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
+      onError("署名がタイムアウトしました")
+    } catch (e) {
+      onError("署名ステータス取得に失敗しました")
+    }
+  }
+
+
+  useEffect(() => {
+    setWalletInfo();
+  }, [])
+
+  useEffect(() => {
+    if (showQRModal && currentPayloadUuid) {
+      setStatusMessage("⏳ 署名待ち...")
+      pollPayloadStatus(
+        currentPayloadUuid,
+        () => {
+          setShowQRModal(false)
+          setStatusMessage("✅ 署名が完了しました！")
+          handleQRModalClose()
+        },
+        (msg) => {
+          setShowQRModal(false)
+          setStatusMessage(`❌ ${msg}`)
+        }
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showQRModal, currentPayloadUuid])
+
+  const setWalletInfo = async () => {
+    try {
+      const address = await getCurrentWalletAddress();
+
+      const res = await fetch(`http://localhost:3001/api/njp/balance/${address}`)
+      const data = await res.json()
+      if (data.success) {
+        setBalance(data.data.balance);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const handleQRModalClose = () => {
+    setShowQRModal(false);
+    setQrCodeUrl("");
+    setDeepLink("");
+
+    setStatusMessage(`支払いが完了しました`);
+
+    setTimeout(() => setStatusMessage(""), 5000)
+    setCurrentPayloadUuid("");
+  }
+
+
+  const paymentNJP = async (amount: any) => {
+
+    try {
+      const fromAddress = await getCurrentWalletAddress();
+      const toAddress = import.meta.env.VITE_SYSTEM_ADDRESS;
+
+      if (!fromAddress || !amount) return;
+
+      // Create payment via backend
+      const paymentResult = await apiService.createPaymentNJP({
+        fromAddress,
+        toAddress,
+        amount,
+      });
+
+
+      if (!paymentResult.success || !paymentResult.data) {
+        throw new Error(paymentResult.error || 'Failed to create payment');
+      }
+      console.log(paymentResult.data);
+      const { uuid, qrUrl: qr, deepLink: link } = paymentResult.data;
+
+      // const pollResult = await pollPayloadStatus(uuid);
+
+      if (qr && uuid) {
+        //   setStatusMessage('Payment successful!');
+        //   // onSuccess?.(pollResult.txId);
+        //   setShowPurchaseMessage(true)
+        console.log('[CERT-PAGE] Showing QR modal')
+        console.log('[CERT-PAGE] QR URL:', qr)
+        console.log('[CERT-PAGE] UUID:', uuid)
+
+        setQrCodeUrl(qr)
+        setDeepLink(deepLink || "")
+        setCurrentPayloadUuid(uuid)
+        setShowQRModal(true)
+        setStatusMessage("📱 QR コードをスキャンして署名してください")
+
+      } else {
+        //   throw new Error(pollResult.error || 'Transaction failed');
+        console.log('[CERT-PAGE] No QR URL or UUID in result:', paymentResult)
+        throw new Error("QR コードの生成に失敗しました")
+      }
+
+    } catch (error) {
+      console.error("Failed payment:", error)
+      setStatusMessage(`❌ エラー: ${error instanceof Error ? error.message : "証明書の発行に失敗しました"}`)
+      // setIsProcessing(false)
+    } finally {
+      //   setTimeout(() => {
+      //     setShowPurchaseMessage(false)
+      //     setCart([])
+      // setQrUrl(null);
+      // setDeepLink(null);
+      //   }, 2000);
+    }
+
+
+  }
 
   const addToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -51,11 +187,14 @@ export default function MerchantPage() {
   }
 
   const handlePurchase = () => {
-    setShowPurchaseMessage(true)
-    setTimeout(() => {
-      setShowPurchaseMessage(false)
-      setCart([])
-    }, 2000)
+    const amount = getTotalPrice();
+    const balanceNum = Number(balance);
+    if (amount > balanceNum) {
+      setStatusMessage("❌ NJPの残高が不足しています");
+      return;
+    }
+
+    paymentNJP(amount);
   }
 
   return (
@@ -63,10 +202,19 @@ export default function MerchantPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-4xl font-bold text-amber-100 drop-shadow-lg">地元の名産店</h1>
-          <Link to="/">
+          <Link to="/town-n">
             <WoodenButton variant="secondary">町に戻る</WoodenButton>
           </Link>
         </div>
+        {/* Status Message */}
+        {statusMessage && (
+          <div className={`mb-6 p-4 rounded-lg text-center font-medium ${statusMessage.includes("✅") ? "bg-green-100 text-green-800" :
+              statusMessage.includes("❌") ? "bg-red-100 text-red-800" :
+                "bg-yellow-200 text-blue-800"
+            }`}>
+            {statusMessage}
+          </div>
+        )}
 
         <div className="flex gap-8">
           {/* 商品一覧 */}
@@ -133,18 +281,58 @@ export default function MerchantPage() {
                   <div className="border-t-2 border-amber-600 pt-4 mb-4">
                     <div className="flex justify-between text-xl font-bold text-amber-100 mb-4">
                       <span>合計:</span>
-                      <span className="text-yellow-300">{getTotalPrice()}NJP</span>
+                      <span className="text-yellow-300">{getTotalPrice()} NJP</span>
                     </div>
-                    <WoodenButton onClick={handlePurchase} variant="primary" className="w-full">
-                      決済する
-                    </WoodenButton>
                   </div>
+                  <div className="border-t-2 border-amber-600 pt-4 mb-4">
+                    <div className="flex justify-between text-xl font-bold text-amber-100 mb-4">
+                      <span>NJP保有額:</span>
+                      <span className="text-yellow-300">{balance} NJP</span>
+                    </div>
+                  </div>
+                  <WoodenButton onClick={handlePurchase} variant="primary" className="w-full">
+                    決済する
+                  </WoodenButton>
                 </>
               )}
             </div>
           </div>
         </div>
       </div>
+
+
+      {/* QR Code Modal */}
+      {showQRModal && qrCodeUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-8 max-w-md w-full">
+            <h3 className="text-2xl font-bold text-amber-900 mb-4 text-center">
+              XUMM で署名してください
+            </h3>
+            <div className="bg-white p-4 rounded-lg border-4 border-amber-300 mb-4">
+              <img src={qrCodeUrl} alt="XUMM QR Code" className="w-full" />
+            </div>
+            <p className="text-sm text-gray-600 text-center mb-4">
+              XUMM アプリでこの QR コードをスキャンして、トランザクションに署名してください
+            </p>
+            {deepLink && (
+              <a
+                href={deepLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full bg-blue-500 text-white text-center py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors mb-2"
+              >
+                XUMM アプリで開く
+              </a>
+            )}
+            <button
+              onClick={handleQRModalClose}
+              className="w-full bg-gray-300 text-gray-800 py-3 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 購入完了メッセージ */}
       {showPurchaseMessage && (
