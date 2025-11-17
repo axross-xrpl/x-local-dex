@@ -130,11 +130,13 @@ export const getWalletInfo = async (): Promise<Partial<WalletState>> => {
     
     const account = await xumm.user.account;
     const networkType = await xumm.user.networkType;
+    const token = await xumm.user.token;
     
     if (account) {
       return {
         address: account,
-        networkType: networkType
+        networkType: networkType,
+        token: token || undefined,
       };
     }
 
@@ -142,6 +144,15 @@ export const getWalletInfo = async (): Promise<Partial<WalletState>> => {
   } catch (error) {
     console.error('Failed to get wallet info:', error);
     return {};
+  }
+};
+
+export const getCurrentWalletToken = async (): Promise<string | null> => {
+  try {
+    const walletInfo = await getWalletInfo();
+    return walletInfo.token || null;
+  } catch (error) {
+    return null;
   }
 };
 

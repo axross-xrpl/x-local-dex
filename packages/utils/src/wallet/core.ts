@@ -6,6 +6,7 @@ export type WalletState = {
   address?: string;
   balance?: string;
   networkType?: string;
+  token?: string;
 };
 
 export type TransactionPayload = XummTypes.XummJsonTransaction | XummTypes.XummPostPayloadBodyJson | XummTypes.XummPostPayloadBodyBlob;

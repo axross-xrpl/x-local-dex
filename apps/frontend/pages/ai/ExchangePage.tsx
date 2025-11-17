@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react"
 import { WoodenButton } from "@repo/ui"
 import { useNavigate } from "react-router-dom"
-import { connectWallet, isWalletConnected, getCurrentWalletAddress } from '@repo/utils/wallet/browser';
+import { connectWallet, isWalletConnected, getCurrentWalletAddress, getCurrentWalletToken } from '@repo/utils/wallet/browser';
 
 interface Currency {
   name: string
@@ -29,6 +29,11 @@ export default function ExchangePage() {
 
   // ユーザーアドレスをState管理 (初期値 null)
   const [userAddress, setUserAddress] = useState<string | null>(null)
+
+  // トークンを管理するState
+  const [userToken, setUserToken] = useState<string | null>(null)
+
+  const [xummModalData, setXummModalData] = useState<XummPayloadResponse | null>(null)
 
   // 保有通貨（初期値は0、実際の残高は fetchBalances で上書き）
   const [currencies, setCurrencies] = useState<Currency[]>([
@@ -73,9 +78,16 @@ export default function ExchangePage() {
       try {
         const connected = await isWalletConnected();
         if (connected) {
-          const address = await getCurrentWalletAddress();
+          // アドレスとトークンを取得
+          const [address, token] = await Promise.all([
+            getCurrentWalletAddress(),
+            getCurrentWalletToken(),
+          ]);
           if (address) {
             setUserAddress(address);
+          }
+          if (token) {
+            setUserToken(token);
           }
         } else {
           // 未接続時に自動接続を試みる場合はここで connectWallet() を呼びだす
@@ -298,7 +310,7 @@ export default function ExchangePage() {
             currency: "NJP",
             issuer: NJP_ISSUER,
             limit: 1000000000,
-            userToken: USER_TOKEN,
+            userToken: userToken || "",
             allowRippling: true,
           }),
         })
@@ -491,7 +503,7 @@ export default function ExchangePage() {
           toIssuer: NJP_ISSUER,       // 交換先トークン（NJP）
           baseAmount: amount,         // ベース金額
           rate: exchangeRate,         // レート
-          userToken: USER_TOKEN,      // XAMANへのプッシュ通知用
+          userToken: userToken || "",      // XAMANへのプッシュ通知用
         }),
       })
 
