@@ -17,7 +17,7 @@ interface Certificate {
 }
 
 // TODO: 実際にはウォレットやコンテキストから取得する
-const USER_ADDRESS = "rfiib1TjGx96EJPGvYRyc62jWZphox2An7"
+const USER_ADDRESS = "rJv2hreZ4JK7aad3k4swdki2EDqbeZ4ZZn"
 
 // TODO: 実際の userToken（XAMAN / XUMM連携時に得られる user_token）を取得するように変更する
 const USER_TOKEN = "NJP"

@@ -1,9 +1,7 @@
 import express from 'express';
-import {
-  createPayload,
-  getPayloadStatus
-} from '@repo/utils/wallet/node';
+import { createPayload, getPayloadStatus } from '@repo/utils/wallet/node';
 import { createPaymentTransaction } from '@repo/utils/wallet/core';
+import { findBestExchangePath } from '../components/xrpl';
 
 const router = express.Router();
 
@@ -134,12 +132,24 @@ router.post("/exchange", async (req, res) => {
     let paymentTx: any;
 
     if (isIouExchange) {
-      // XJP → NJP（IOU）のPaymentを構築
+      // パス（経路）の計算結果
+      const pathResult = await findBestExchangePath(
+        fromAddress,
+        fromCurrency!,
+        fromIssuer,
+        toCurrency!,
+        toIssuer!,
+        exchangeAmount.toString()
+      );
+
+      console.log("[EXCHANGE DEBUG] pathResult:", pathResult);
+
+      // XJP → NJP（IOU）のPayment トランザクションを構築
       paymentTx = {
         txjson: {
           TransactionType: "Payment" as const,
           Account: fromAddress,
-          Destination: toAddress,
+          Destination: fromAddress, // 自分宛て
           Amount: {
             currency: toCurrency,
             issuer: toIssuer,
@@ -148,9 +158,10 @@ router.post("/exchange", async (req, res) => {
           SendMax: {
             currency: fromCurrency,
             issuer: fromIssuer,
-            value: baseAmountNum.toString(),     // 例: 100 (XJP)
+            value: pathResult.sendMaxAmount,     // 例: 100 (XJP)
           },
           // Flags や Pathfinding を細かく制御する場合はここに追記
+          Paths: pathResult.paths,
           // Flags: 0,
         },
       };
