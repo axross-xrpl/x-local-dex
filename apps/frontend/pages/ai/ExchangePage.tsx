@@ -37,8 +37,8 @@ export default function ExchangePage() {
 
   // 保有通貨（初期値は0、実際の残高は fetchBalances で上書き）
   const [currencies, setCurrencies] = useState<Currency[]>([
-    { name: "日本円", amount: 0, symbol: "¥" },
-    { name: "ドル", amount: 0, symbol: "$" },
+    { name: "ステーブルコイン", amount: 0, symbol: "XJP" },
+    // { name: "XRP", amount: 0, symbol: "X" },
     { name: "地元通貨", amount: 0, symbol: "NJP" },
   ])
 
@@ -159,8 +159,8 @@ export default function ExchangePage() {
       const njpBalance = njp ? Number(njp.value) : 0
 
       setCurrencies([
-        { name: "日本円", amount: xjpBalance, symbol: "¥" },
-        { name: "ドル", amount: 300, symbol: "$" }, // デモ用
+        { name: "ステーブルコイン", amount: xjpBalance, symbol: "XJP" },
+        // { name: "XRP", amount: 300, symbol: "X" }, // デモ用
         { name: "地元通貨", amount: njpBalance, symbol: "NJP" },
       ])
     } catch (e) {
@@ -654,7 +654,7 @@ export default function ExchangePage() {
             <div className="space-y-6">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border-2 border-blue-400">
                 <p className="text-sm text-blue-900 mb-2">交換元</p>
-                <p className="text-2xl font-bold text-blue-700">日本円 (¥)</p>
+                <p className="text-2xl font-bold text-blue-700">ステーブルコイン (XJP)</p>
               </div>
 
               <div className="flex items-center justify-center">
