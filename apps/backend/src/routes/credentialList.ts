@@ -47,12 +47,19 @@ router.get('/credentials/:address', async (req, res) => {
         .map((obj: any) => {
           // Decode URI if present
           let metadata = null;
+          let uriDecoded = null;
           if (obj.URI) {
             try {
-              const uriDecoded = Buffer.from(obj.URI, 'hex').toString('utf8');
-              metadata = JSON.parse(uriDecoded);
+              uriDecoded = Buffer.from(obj.URI, 'hex').toString('utf8');
+              // If it's a valid JSON, parse it; otherwise, just use the string
+              if (uriDecoded.trim().startsWith("{")) {
+                metadata = JSON.parse(uriDecoded);
+              } else {
+                metadata = uriDecoded; // Just a URL or plain string
+              }
             } catch (error) {
               console.error('[BACKEND] Failed to decode URI:', error);
+              metadata = uriDecoded; // fallback to raw string
             }
           }
 
