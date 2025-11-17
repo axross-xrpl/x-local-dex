@@ -39,7 +39,7 @@ const CODE_METADATA: Record<string, CredentialMetadata> = {
     type: "飲食店レビュー",
     location: "福岡市",
     expireDate: "2026-03-31",
-    rate: "10%"
+    rate: "1:1.2"
   },
   "CODE5": {
     name: "イベント参加証明書",
@@ -289,7 +289,16 @@ export default function CertificatePage() {
                 所有している訪問証明書
               </h2>
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {certificates.map((cert, index) => (
+                {
+                  isCertLoading ? (
+                    <p className="text-amber-700">証明書を読み込み中...</p>
+                  ) : certError ? (
+                    <p className="text-red-600">{certError}</p>
+                  ) : certificates.length === 0 ? (
+                    <p className="text-amber-700">証明書が見つかりません。新しい証明書を登録してください。</p>
+                  )
+                :
+                certificates.map((cert, index) => (
                   <div
                     key={index}
                     className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow"
