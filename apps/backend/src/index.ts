@@ -6,6 +6,9 @@ import apiRoutes from './routes/api';
 import xummRoutes from './routes/xumm';
 import credentialRoutes from './routes/createCredential';
 import credentialListRoutes from './routes/credentialList';
+import balancesRouter from "./routes/balances";
+import rateRoutes from "./routes/rate";
+import trustlineRoutes from "./routes/trustline";
 import ipfsRoutes from './routes/ipfs';
 import permissionedOffer from './routes/permissionedOffer';
 
@@ -36,6 +39,9 @@ app.use('/api', credentialListRoutes);
 app.use('/api', ipfsRoutes);
 app.use('/api', permissionedOffer);
 app.use('/api/xumm', xummRoutes);
+app.use("/api", balancesRouter);
+app.use("/api", rateRoutes);
+app.use("/api", trustlineRoutes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

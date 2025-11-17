@@ -13,30 +13,46 @@ const getEnvVar = (key: string): string => {
 export const createXummConnection = (apiKey?: string, apiSecret?: string): Xumm => {
   const key = apiKey || getEnvVar('XUMM_API_KEY');
   const secret = apiSecret || getEnvVar('XUMM_API_SECRET');
-  
+
   if (!xummInstance) {
     xummInstance = new Xumm(key, secret);
   }
   return xummInstance;
 };
 
-export const createPayload = async (payload: TransactionPayload): Promise<XummResponse | null> => {
+export const createPayload = async (payload: TransactionPayload, options?: { userToken?: string }): Promise<XummResponse | null> => {
   try {
     const xumm = createXummConnection();
-    
+
     if (!xumm.payload) {
       throw new Error('Payload service not available');
     }
-    
-    const result = await xumm.payload.create(payload);
+
+    console.log("[XUMM DEBUG] tx payload:", JSON.stringify(payload, null, 2));
+
+    let result: XummResponse | null = null;
+
+    // userToken があるときだけ、第2引数に user_token を渡す
+    if (options?.userToken) {
+      result = (await xumm.payload.create(
+        payload as XummTypes.XummPostPayloadBodyJson,
+        { user_token: options.userToken } as any
+      )) as XummResponse;
+    } else {
+      result = (await xumm.payload.create(
+        payload as XummTypes.XummPostPayloadBodyJson
+      )) as XummResponse;
+    }
+
+    console.log("[XUMM DEBUG] create result:", JSON.stringify(result, null, 2));
 
     if (!result) {
       throw new Error('Failed to create transaction payload');
     }
 
-    return result as XummResponse;
+    return result;
   } catch (error) {
-    console.error('Payload creation failed:', error);
+    console.error('Payload creation failed (raw error):', error);
     return null;
   }
 };
@@ -44,11 +60,11 @@ export const createPayload = async (payload: TransactionPayload): Promise<XummRe
 export const getPayloadStatus = async (payloadUuid: string): Promise<any> => {
   try {
     const xumm = createXummConnection();
-    
+
     if (!xumm.payload) {
       throw new Error('Payload service not available');
     }
-    
+
     const result = await xumm.payload.get(payloadUuid);
     return result;
   } catch (error) {
@@ -59,17 +75,17 @@ export const getPayloadStatus = async (payloadUuid: string): Promise<any> => {
 
 export const waitForPayloadResult = async (payloadUuid: string, timeoutMs = 5 * 60 * 1000): Promise<any> => {
   const startTime = Date.now();
-  
+
   while (Date.now() - startTime < timeoutMs) {
     const status = await getPayloadStatus(payloadUuid);
-    
+
     if (status && status.meta && status.meta.signed !== null) {
       return status;
     }
-    
+
     // Wait 2 seconds before polling again
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
-  
+
   throw new Error('Payload timeout - no response received');
 };

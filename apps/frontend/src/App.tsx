@@ -1,7 +1,7 @@
 import { Routes, Route, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { Header, NavBar } from "@repo/ui";
 import { useAuth } from './context/AuthContext';
-import logo from '/vite.svg';
+import logo from '/images/lemonex_logo.png';
 import type { NavItem } from "@repo/ui";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 

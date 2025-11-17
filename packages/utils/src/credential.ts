@@ -47,7 +47,6 @@ export const uploadCredentialMetadata = async (
   metadata: CredentialMetadata
 ): Promise<string> => {
   try {
-    console.log('[CREDENTIAL] Uploading metadata to IPFS:', metadata);
     
     const response = await fetch('http://localhost:3001/api/upload', {
       method: 'POST',
@@ -63,7 +62,6 @@ export const uploadCredentialMetadata = async (
       throw new Error(data.error || 'Failed to upload metadata to IPFS');
     }
 
-    console.log('[CREDENTIAL] Metadata uploaded, URL:', data.data.url);
     return data.data.url;
   } catch (error) {
     console.error('[CREDENTIAL] Failed to upload metadata to IPFS:', error);
@@ -75,8 +73,6 @@ export const requestCredentialCreation = async (
   request: CredentialCreateRequest
 ): Promise<{ success: boolean; txHash?: string; error?: string }> => {
   try {
-    console.log('[CREDENTIAL] Requesting credential creation:', request);
-
     const uriHex = stringToHex(request.uri);
     const credentialTypeHex = stringToHex(request.credentialType);
     
@@ -177,11 +173,9 @@ export const acceptCredential = async (
       CredentialType: credentialTypeHex,
     };
 
-    console.log('[CREDENTIAL-ACCEPT] Signing transaction:', txjson);
 
     // Sign transaction with XUMM - this will wait for user to sign
     const result = await signTransaction({ txjson });
-    console.log('[CREDENTIAL-ACCEPT] Sign transaction result:', result);
 
     if (!result || !result.uuid || !result.refs?.qr_png || !result.next?.always) {
       return {

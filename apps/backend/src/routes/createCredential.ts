@@ -80,30 +80,6 @@ router.post('/credential', async (req, res) => {
       });
     }
 
-    console.log('[CREDENTIAL-CREATE] Creating credential');
-    console.log('[CREDENTIAL-CREATE] Subject:', subject);
-    console.log('[CREDENTIAL-CREATE] CredentialType (hex):', credentialType);
-    console.log('[CREDENTIAL-CREATE] URI (hex):', uri);
-
-    // Decode for logging
-    if (credentialType) {
-      try {
-        const decoded = Buffer.from(credentialType, 'hex').toString('utf8');
-        console.log('[CREDENTIAL-CREATE] CredentialType (decoded):', decoded);
-      } catch (e) {
-        console.log('[CREDENTIAL-CREATE] Could not decode CredentialType');
-      }
-    }
-
-    if (uri) {
-      try {
-        const decoded = Buffer.from(uri, 'hex').toString('utf8');
-        console.log('[CREDENTIAL-CREATE] URI (decoded):', decoded);
-      } catch (e) {
-        console.log('[CREDENTIAL-CREATE] Could not decode URI');
-      }
-    }
-
     // Connect to XRPL
     const client = new xrpl.Client(XRPL_ENDPOINT);
     await client.connect();
@@ -123,7 +99,6 @@ router.post('/credential', async (req, res) => {
       // Add URI if provided (already in hex)
       if (uri) {
         txjson.URI = uri; // Already hex-encoded from frontend
-        console.log('[CREDENTIAL-CREATE] URI field added to transaction');
       }
 
       // Add optional expire
@@ -131,15 +106,11 @@ router.post('/credential', async (req, res) => {
         txjson.Expiration = expire;
       }
 
-      console.log('[CREDENTIAL-CREATE] Transaction:', JSON.stringify(txjson, null, 2));
-
       // Prepare transaction
       const prepared = await client.autofill(txjson);
-      console.log('[CREDENTIAL-CREATE] Transaction prepared with fee:', prepared.Fee);
 
       // Sign transaction
       const signed = wallet.sign(prepared);
-      console.log('[CREDENTIAL-CREATE] Transaction signed');
 
       // Submit transaction
       const result = await client.submitAndWait(signed.tx_blob);
@@ -149,8 +120,6 @@ router.post('/credential', async (req, res) => {
         const txResult = result.result.meta.TransactionResult;
         
         if (txResult === 'tesSUCCESS') {
-          console.log('[CREDENTIAL-CREATE] ✅ Credential created successfully');
-          console.log('[CREDENTIAL-CREATE] TX Hash:', result.result.hash);
           
           res.json({
             success: true,
