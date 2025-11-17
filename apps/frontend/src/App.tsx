@@ -13,7 +13,8 @@ import CredentialCreatePage from "../pages/CredentialCreate";
 
 
 // AI generated pages
-import GamePage from "../pages/ai/GamePage";
+import TownlistPage from "../pages/ai/TownlistPage";
+import TownPage from "../pages/ai/TownPage";
 import CertificatePage from "../pages/ai/CertificatePage";
 import ExchangePage from "../pages/ai/ExchangePage";
 import MerchantPage from "../pages/ai/MerchantPage";
@@ -84,12 +85,20 @@ const App = () => {
             path="/"
             element={
               <ProtectedRoute>
-                <GamePage />
+                <TownlistPage />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/certificate"
+            path="/town-n"
+            element={
+              <ProtectedRoute>
+                <TownPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/town-n/certificate"
             element={
               <ProtectedRoute>
                 <CertificatePage />
@@ -97,7 +106,7 @@ const App = () => {
             }
           />
           <Route
-            path="/exchange"
+            path="/town-n/exchange"
             element={
               <ProtectedRoute>
                 <ExchangePage />
@@ -105,7 +114,7 @@ const App = () => {
             }
           />
           <Route
-            path="/merchant"
+            path="/town-n/merchant"
             element={
               <ProtectedRoute>
                 <MerchantPage />

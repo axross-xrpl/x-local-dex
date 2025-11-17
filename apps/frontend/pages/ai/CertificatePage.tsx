@@ -310,7 +310,7 @@ export default function CertificatePage() {
                 >
                   {isProcessing ? "処理中..." : "登録する"}
                 </WoodenButton>
-                <WoodenButton onClick={() => router("/")} variant="secondary" className="w-full">
+                <WoodenButton onClick={() => router("/town-n")} variant="secondary" className="w-full">
                   町に戻る
                 </WoodenButton>
               </div>
