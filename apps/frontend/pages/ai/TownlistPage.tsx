@@ -3,9 +3,9 @@ import { logout } from '@repo/utils/wallet/browser';
 
 // 都市データの定義
 const cities = [
-    { name: 'Z県N市', status: 'available', image: 'https://placehold.co/400x200/4F46E5/ffffff?text=City+A', description: '歴史と文化が息づく街。' },
-    { name: 'B県Y市', status: 'coming_soon', image: 'https://placehold.co/400x200/F97316/ffffff?text=City+B', description: '未来都市計画が進行中。' },
-    { name: 'M県K市', status: 'coming_soon', image: 'https://placehold.co/400x200/10B981/ffffff?text=City+C', description: '自然豊かなリゾート地。' },
+    { name: 'Z県N市', status: 'available', image: './images/city_n.jpg', description: '歴史と文化が息づく街。' },
+    { name: 'B県Y市', status: 'coming_soon', image: './images/city_y.jpg', description: '未来都市計画が進行中。' },
+    { name: 'M県K市', status: 'coming_soon', image: './images/city_k.jpg', description: '自然豊かなリゾート地。' },
 ];
 
 const TownlistPage = () => {
@@ -70,7 +70,7 @@ const TownlistPage = () => {
                                     className={`
                                         w-full py-3 text-lg font-bold rounded-lg transition duration-200 flex items-center justify-center shadow-md
                                         ${city.status === 'available'
-                                            ? 'bg-indigo-600 text-white hover:bg-indigo-700' // 活性時
+                                            ? 'bg-yellow-600 text-white hover:bg-yellow-700' // 活性時
                                             : 'bg-gray-300 text-gray-800 cursor-not-allowed opacity-75' // 非活性時
                                         }
                                     `}
@@ -78,9 +78,7 @@ const TownlistPage = () => {
                                     {city.status === 'available' ? (
                                         <>訪問する</>
                                     ) : (
-                                        <>
-                                                準備中
-                                        </>
+                                        <>準備中</>
                                     )}
                                 </button>
                             </div>
