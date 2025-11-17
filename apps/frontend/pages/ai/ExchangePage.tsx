@@ -17,7 +17,7 @@ interface Certificate {
 }
 
 // TODO: 実際にはウォレットやコンテキストから取得する
-const USER_ADDRESS = "rJv2hreZ4JK7aad3k4swdki2EDqbeZ4ZZn"
+const USER_ADDRESS = "rpw4jw1YSdLUzYB3MYAXQkhLdVpPi85M8u"
 
 // TODO: 実際の userToken（XAMAN / XUMM連携時に得られる user_token）を取得するように変更する
 const USER_TOKEN = "NJP"
@@ -31,6 +31,8 @@ const NJP_ISSUER = "rGrGdaArjMRB8dsfwxsH3L87gmqiaK4gQo"
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL!
 
 const POLL_INTERVAL_MS = 3000
+
+const permissionedDomain = "3BF213E48D71B230E25CD5384B234997CAC69B461AED22B82ACC854BCB20B639"
 
 export default function ExchangePage() {
   const router = useNavigate()
@@ -436,7 +438,7 @@ export default function ExchangePage() {
     try {
       setIsLoading(true)
 
-      const res = await fetch(`${API_BASE_URL}/api/xumm/exchange`, {
+      const res = await fetch(`${API_BASE_URL}/api/xumm/permissioned-exchange`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -451,6 +453,7 @@ export default function ExchangePage() {
           baseAmount: amount,         // ベース金額
           rate: exchangeRate,         // レート
           userToken: USER_TOKEN,      // XAMANへのプッシュ通知用
+          credential: permissionedDomain, // 権限付きオファー用クレデンシャル
         }),
       })
 
