@@ -7,6 +7,8 @@ import type { TransactionPayload } from "@repo/utils/wallet/core";
 
 const router = express.Router();
 
+const NJP_ISSUER = process.env.SYSTEM_ADDRESS!;
+
 /**
  * 指定アドレスに NJP のトラストラインが設定されているかを確認
  */
@@ -25,16 +27,27 @@ router.get("/trustlines/:address", async (req, res) => {
 
     const { trustlines } = await getAccountTrustlines(address);
 
-    // 現段階では NJP のみ
-    const hasNJP = trustlines.some(
-      (t: TrustlineInfo) => t.currency === "NJP",
-    );
+    // NJP ＋ NJP_ISSUER(SYSTEM_ADDRESS) のトラストラインを抽出
+    const njpLines = trustlines.filter((t: TrustlineInfo) => {
+      const issuer = (t as any).issuer ?? (t as any).account ?? "";
+      return t.currency === "NJP" && issuer === NJP_ISSUER;
+    });
+
+    const hasNJP = njpLines.length > 0;
+
+    // no_ripple フラグを見て「リッピリング許可かどうか」を判定
+    const hasNJPWithRippling = njpLines.some((t: TrustlineInfo) => {
+      // account_lines のレスポンスだと no_ripple が boolean で入る
+      const noRipple = (t as any).no_ripple;
+      return noRipple === false || noRipple === 0 || noRipple === undefined;
+    });
 
     return res.json({
       success: true,
       data: {
         address,
         hasNJP,
+        hasNJPWithRippling,
         trustlines,
       },
     });
@@ -55,12 +68,13 @@ router.get("/trustlines/:address", async (req, res) => {
  */
 router.post("/trustlines/payload", async (req, res) => {
   try {
-    const { address, currency, issuer, limit, userToken } = req.body as {
+    const { address, currency, issuer, limit, userToken, allowRippling, } = req.body as {
       address?: string;
       currency?: string; // 現段階では "NJP" 前提
       issuer?: string;
       limit?: string | number;
       userToken?: string;
+      allowRippling?: boolean;
     };
 
     if (!address || !currency || !issuer || limit === undefined) {
@@ -98,7 +112,14 @@ router.post("/trustlines/payload", async (req, res) => {
       issuer,
       limit: limitNum,
       hasUserToken: !!userToken,
+      allowRippling,
     });
+
+    // allowRippling === true のときは NoRipple をクリアしてリッピリングを有効化
+    let flags: number | undefined;
+    if (allowRippling) {
+      flags = xrpl.TrustSetFlags.tfClearNoRipple;
+    }
 
     // TrustSet トランザクションの txjson を構築
     const txPayload: TransactionPayload = {
@@ -113,6 +134,7 @@ router.post("/trustlines/payload", async (req, res) => {
         // 必要に応じて Flags を追加
         // Flags: xrpl.TrustSetFlags.tfClearNoRipple,
       },
+      ...(flags !== undefined ? { Flags: flags } : {}),
     };
 
     const payload = await createPayload(txPayload, userToken ? { userToken } : undefined,);
@@ -134,6 +156,7 @@ router.post("/trustlines/payload", async (req, res) => {
         currency,
         issuer,
         limit: limitNum,
+        allowRippling: !!allowRippling,
       },
     });
   } catch (error) {

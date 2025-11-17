@@ -262,6 +262,7 @@ export default function ExchangePage() {
           issuer: NJP_ISSUER,
           limit: 1000000000,
           userToken: USER_TOKEN,
+          allowRippling: true,
         }),
       })
 
