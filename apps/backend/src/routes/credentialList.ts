@@ -1,5 +1,6 @@
 import express from 'express';
 import * as xrpl from 'xrpl';
+import type { CredentialMetadata } from "@repo/utils/wallet/core";
 
 const router = express.Router();
 
@@ -7,6 +8,40 @@ const XRPL_ENDPOINT = process.env.XRPL_ENDPOINT!;
 
 // Credential flags
 const LSF_ACCEPTED = 0x00010000; // 65536
+
+// XRPL から返ってくる Credential オブジェクトの型
+interface RawCredentialObject {
+  CredentialType: string;
+  Issuer: string;
+  Subject: string;
+  URI?: string;
+  Expire?: number;
+  Flags: number;
+  OwnerNode?: string;
+  PreviousTxnID?: string;
+  PreviousTxnLgrSeq?: number;
+  index: string;
+}
+
+/**
+ * URIに入っているJSONを、APIで扱いやすい形に正規化
+ * @param raw 
+ */
+function normalizeMetadata(raw: any | null): CredentialMetadata | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const rate = Number(raw.rate);
+
+  return {
+    name: raw.name ?? "",
+    expireDate: raw["expire-date"] ?? raw.expireDate ?? "",
+    type: raw.type ?? undefined,
+    location: raw.location ?? "",
+    rate: Number.isNaN(rate) ? 1.0 : rate,
+  };
+}
 
 // Get credentials for a given account (only accepted)
 router.get('/credentials/:address', async (req, res) => {
@@ -33,33 +68,28 @@ router.get('/credentials/:address', async (req, res) => {
         command: 'account_objects',
         account: address,
         type: 'credential',
-        ledger_index: 'validated'
+        ledger_index: 'validated' as const,
       });
 
 
       // Parse and filter only accepted credentials
-      const credentials = accountObjects.result.account_objects
-        .filter((obj: any) => {
+      const credentials = (accountObjects.result.account_objects as RawCredentialObject[])
+        .filter((obj) => {
           // Check if credential is accepted
           const isAccepted = (obj.Flags & LSF_ACCEPTED) === LSF_ACCEPTED;
           return isAccepted;
         })
-        .map((obj: any) => {
+        .map((obj) => {
           // Decode URI if present
-          let metadata = null;
-          let uriDecoded = null;
+          let metadataRaw: any = null;
+          let metadata: CredentialMetadata | null = null;
           if (obj.URI) {
             try {
-              uriDecoded = Buffer.from(obj.URI, 'hex').toString('utf8');
-              // If it's a valid JSON, parse it; otherwise, just use the string
-              if (uriDecoded.trim().startsWith("{")) {
-                metadata = JSON.parse(uriDecoded);
-              } else {
-                metadata = uriDecoded; // Just a URL or plain string
-              }
+              const uriDecoded = Buffer.from(obj.URI, 'hex').toString('utf8');
+              metadataRaw = JSON.parse(uriDecoded);
+              metadata = normalizeMetadata(metadataRaw);
             } catch (error) {
               console.error('[BACKEND] Failed to decode URI:', error);
-              metadata = uriDecoded; // fallback to raw string
             }
           }
 
@@ -128,11 +158,11 @@ router.get('/credential/:address/:credentialType/:issuer', async (req, res) => {
         command: 'account_objects',
         account: address,
         type: 'credential',
-        ledger_index: 'validated'
+        ledger_index: 'validated' as const,
       });
 
       // Find matching credential
-      const credential = accountObjects.result.account_objects.find((obj: any) => 
+      const credential = (accountObjects.result.account_objects as RawCredentialObject[]).find((obj) =>
         obj.CredentialType === credentialType && obj.Issuer === issuer
       );
 
@@ -154,11 +184,13 @@ router.get('/credential/:address/:credentialType/:issuer', async (req, res) => {
       }
 
       // Decode URI if present
-      let metadata = null;
+      let metadataRaw: any = null;
+      let metadata: CredentialMetadata | null = null;
       if (credential.URI) {
         try {
           const uriDecoded = Buffer.from(credential.URI, 'hex').toString('utf8');
-          metadata = JSON.parse(uriDecoded);
+          metadataRaw = JSON.parse(uriDecoded);
+          metadata = normalizeMetadata(metadataRaw);
         } catch (error) {
           console.error('[BACKEND] Failed to decode URI:', error);
         }

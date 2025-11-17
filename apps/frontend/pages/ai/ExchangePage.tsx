@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { WoodenButton } from "@repo/ui"
 import { useNavigate } from "react-router-dom"
 
@@ -11,70 +11,495 @@ interface Currency {
 interface Certificate {
   code: string
   date: string
+  credentialType: string
+  issuer: string
+  rate?: number
 }
+
+// TODO: 実際にはウォレットやコンテキストから取得する
+const USER_ADDRESS = "rJv2hreZ4JK7aad3k4swdki2EDqbeZ4ZZn"
+
+// TODO: 実際の userToken（XAMAN / XUMM連携時に得られる user_token）を取得するように変更する
+const USER_TOKEN = "NJP"
+
+// XJP Issuer
+const XJP_ISSUER = "rEe8Yj3hfGpa3nGypC1MJoV7B99Hz3i8at"
+
+// NJP Issuer
+const NJP_ISSUER = "rGrGdaArjMRB8dsfwxsH3L87gmqiaK4gQo"
+
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL!
+
+const POLL_INTERVAL_MS = 3000
 
 export default function ExchangePage() {
   const router = useNavigate()
+
+  // 保有通貨（初期値は0、実際の残高は fetchBalances で上書き）
   const [currencies, setCurrencies] = useState<Currency[]>([
-    { name: "日本円", amount: 50000, symbol: "¥" },
-    { name: "ドル", amount: 300, symbol: "$" },
+    { name: "日本円", amount: 0, symbol: "¥" },
+    { name: "ドル", amount: 0, symbol: "$" },
     { name: "地元通貨", amount: 0, symbol: "NJP" },
   ])
+
+  // 入力＆レート
   const [exchangeAmount, setExchangeAmount] = useState("")
-  const [showCertificates, setShowCertificates] = useState(false)
-  const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null)
   const [exchangeRate, setExchangeRate] = useState(1.0)
+
+  // 証明書
+  const [showCertificates, setShowCertificates] = useState(false)
+  const [certificates, setCertificates] = useState<Certificate[]>([])
+  const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null)
+
+  // トラストライン
+  const [hasNJPTrustline, setHasNJPTrustline] = useState<boolean | null>(null)
+  const [hasXJPTrustline, setHasXJPTrustline] = useState<boolean | null>(null)
+
+  // 状態＆メッセージ
   const [message, setMessage] = useState("")
   const [hasReceivedBonus, setHasReceivedBonus] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  // ダミーの訪問証明書
-  const dummyCertificates: Certificate[] = [
-    { code: "ISE2024-001", date: "2024-01-15" },
-    { code: "ISE2024-042", date: "2024-02-28" },
-    { code: "ISE2024-099", date: "2024-03-10" },
-  ]
+  // XAMAN ペイロード
+  // const [payloadUuid, setPayloadUuid] = useState<string | null>(null)
+  const pollingRef = useRef<number | null>(null)
 
-  const handleExchange = () => {
+  // unmount 時にポーリング停止
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current !== null) {
+        window.clearInterval(pollingRef.current)
+      }
+    }
+  }, [])
+
+  // 初期ロード：残高・トラストライン・証明書
+  useEffect(() => {
+    if (!USER_ADDRESS) return
+
+    const fetchAll = async () => {
+      setIsLoading(true)
+      try {
+        await Promise.all([
+          fetchBalances(USER_ADDRESS),
+          fetchTrustlines(USER_ADDRESS),
+          fetchCertificates(USER_ADDRESS),
+        ])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchAll()
+  }, [])
+
+  // 残高取得（/api/balances/:address）
+  const fetchBalances = async (address: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/balances/${address}`)
+      const json = await res.json()
+      if (!json.success) {
+        console.error("Failed to fetch balances:", json.error)
+        return
+      }
+
+      const data = json.data as {
+        address: string
+        xrp: { currency: string; value: string }
+        issued: { currency: string; issuer: string; value: string }[]
+      }
+
+      // XJP = 日本円ステーブルコイン
+      const xjp = data.issued.find((i) => i.currency === "XJP" && i.issuer === XJP_ISSUER,)
+      const xjpBalance = xjp ? Number(xjp.value) : 0
+      // const xjpBalance = data.issued.find((i) => i.currency === "XJP" && i.issuer === XJP_ISSUER)?.value ?? "0"
+      // NJP
+      const njp = data.issued.find((i) => i.currency === "NJP" && i.issuer === NJP_ISSUER,)
+      const njpBalance = njp ? Number(njp.value) : 0
+      // const njpBalance = data.issued.find((i) => i.currency === "NJP" && i.issuer === NJP_ISSUER)?.value ?? "0"
+
+      setCurrencies([
+        { name: "日本円", amount: xjpBalance, symbol: "¥" },
+        { name: "ドル", amount: 300, symbol: "$" }, // デモ用
+        { name: "地元通貨", amount: njpBalance, symbol: "NJP" },
+      ])
+    } catch (e) {
+      console.error("Error fetching balances:", e)
+    }
+  }
+
+  // トラストライン取得（GET /api/trustlines/:address）
+  const fetchTrustlines = async (address: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/trustlines/${address}`)
+      const json = await res.json()
+      if (!json.success) {
+        console.error("Failed to fetch trustlines:", json.error)
+        return
+      }
+
+      const data = json.data as {
+        address: string
+        hasNJP: boolean
+        hasXJP: boolean
+        trustlines: { currency: string; issuer: string; balance: string; limit: string }[]
+      }
+
+      setHasNJPTrustline(data.hasNJP)
+      setHasXJPTrustline(data.hasXJP)
+    } catch (e) {
+      console.error("Error fetching trustlines:", e)
+    }
+  }
+
+  // 証明書一覧取得（GET /api/credentials/:address）
+  const fetchCertificates = async (address: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/credentials/${address}`)
+      const json = await res.json()
+      if (!json.success) {
+        console.error("Failed to fetch credentials:", json.error)
+        return
+      }
+
+      const data = json as {
+        success: boolean
+        account: string
+        count: number
+        credentials: {
+          credentialType: string
+          issuer: string
+          metadata: {
+            name: string
+            expireDate: string
+            type?: string
+            location: string
+            rate: number
+          } | null
+        }[]
+      }
+
+      console.log("[Exchange.tsx] 生の credentials：", data.credentials);
+      console.log(
+        "[Exchange.tsx] metadata 一覧：",
+        data.credentials.map((c) => c.metadata)
+      );
+
+      const mapped: Certificate[] = data.credentials
+        .filter((c) => c.metadata)
+        .map((c) => ({
+          code: c.metadata!.name || c.credentialType,
+          date: c.metadata!.expireDate || "-",
+          credentialType: c.credentialType,
+          issuer: c.issuer,
+          rate: c.metadata!.rate,
+        }))
+
+      console.log("[Exchange.tsx] credentials 情報：", mapped);
+      setCertificates(mapped)
+    } catch (e) {
+      console.error("Error fetching credentials:", e)
+    }
+  }
+
+  // 証明書選択 → レート決定（/api/rate/apply）
+  const handleCertificateSelect = async (cert: Certificate) => {
+    console.log("[ExchangePage.tsx] 発行日：", cert.date);
+    setSelectedCertificate(cert)
+    setShowCertificates(false)
+    setMessage("証明書を適用中です...")
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/rate/apply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          address: USER_ADDRESS,
+          credentialType: cert.credentialType,
+          issuer: cert.issuer,
+        }),
+      })
+
+      const json = await res.json()
+      if (!json.success) {
+        setMessage(`証明書の適用に失敗しました: ${json.error ?? "unknown error"}`)
+        return
+      }
+
+      const data = json.data as { rate: number }
+
+      setExchangeRate(data.rate)
+      setMessage(`証明書「${cert.code}」を適用しました！交換レートが 1:${data.rate} になりました。`)
+    } catch (e) {
+      console.error("Error applying rate:", e)
+      setMessage("証明書の適用中にエラーが発生しました")
+    }
+  }
+
+  // トラストライン設定用ペイロード作成（POST /api/trustlines/payload）
+  const handleSetupTrustline = async () => {
+    setMessage("")
+
+    if (!USER_ADDRESS) {
+      setMessage("ウォレットアドレスが取得できませんでした")
+      return
+    }
+
+    if (hasNJPTrustline && hasXJPTrustline) {
+      setMessage("すでに NJP & XJP のトラストラインが設定されています")
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      if (!hasNJPTrustline) {
+        const resNJP = await fetch(`${API_BASE_URL}/api/trustlines/payload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          address: USER_ADDRESS,
+          currency: "NJP",
+          issuer: NJP_ISSUER,
+          limit: 1000000000,
+          userToken: USER_TOKEN,
+          allowRippling: true,
+        }),
+      })
+      const jsonNJP = await resNJP.json()
+      if (!jsonNJP.success) {
+        setMessage(`NJPトラストライン設定失敗: ${jsonNJP.error ?? "unknown error"}`)
+        return
+      }
+      setMessage("NJPトラストライン設定用トランザクションを作成しました。XAMANで承認してください。")
+      startPollingTrustlineStatus(jsonNJP.data.uuid)
+    }
+
+     if (!hasXJPTrustline) {
+        const resXJP = await fetch(`${API_BASE_URL}/api/trustlines/payload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          address: USER_ADDRESS,
+          currency: "XJP",
+          issuer: XJP_ISSUER,
+          limit: 1000000000,
+          userToken: USER_TOKEN,
+          allowRippling: true,
+        }),
+      })
+      const jsonXJP = await resXJP.json()
+      if (!jsonXJP.success) {
+        setMessage(`XJPトラストライン設定失敗: ${jsonXJP.error ?? "unknown error"}`)
+        return
+      }
+      setMessage("XJPトラストライン設定用トランザクションを作成しました。XAMANで承認してください。")
+      startPollingTrustlineStatus(jsonXJP.data.uuid)
+    }
+
+    } catch (e) {
+      console.error("Error creating trustline payload:", e)
+      setMessage("トラストライン設定中にエラーが発生しました")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  /**
+   * トラストライン用のステータス監視
+   * @param uuid 
+   */
+  const startPollingTrustlineStatus = (uuid: string) => {
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current)
+    }
+
+    const id = window.setInterval(async () => {
+      try {
+        const status = await fetchPayloadStatus(uuid)
+        const signed = status?.meta?.signed
+
+        if (signed === true && status?.meta?.resolved === true) {
+          // サイン済み → Ledger上の trustline を再取得
+          await fetchTrustlines(USER_ADDRESS)
+
+          setMessage("トラストラインが正常に設定されました ✅")
+          window.clearInterval(id)
+          pollingRef.current = null
+        } else if ( status?.meta?.resolved === false) {
+          setMessage("トラストライン設定は拒否されました ❌")
+          window.clearInterval(id)
+          pollingRef.current = null
+        }
+        // null の間は待つだけ
+      } catch (e) {
+        console.error(e)
+        setMessage("トラストライン設定の承認状況の取得に失敗しました")
+        window.clearInterval(id)
+        pollingRef.current = null
+      }
+    }, 3000)
+
+    pollingRef.current = id
+  }
+
+  /**
+   * ペイロードステータス取得
+   * @param uuid 
+   * @returns 
+   */
+  const fetchPayloadStatus = async (uuid: string) => {
+    const res = await fetch(`${API_BASE_URL}/api/xumm/payload/${uuid}`)
+    const json = await res.json()
+    if (!json.success) {
+      throw new Error(json.error ?? "Failed to get payload status")
+    }
+    return json.data
+  }
+
+  /**
+   * ペイロードステータスをポーリング（承認 / 拒否 まで）
+   * @param uuid 
+   */
+  const startPollingPayloadStatus = (uuid: string) => {
+    // 既存の interval があれば止める
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current)
+    }
+
+    const id = window.setInterval(async () => {
+      try {
+        const status = await fetchPayloadStatus(uuid)
+        const signed = status?.meta?.signed // true / false / null
+
+        if (signed === true) {
+          setMessage("トランザクションが承認されました ✅")
+
+          // 最新残高を取得して画面を上書き
+          await fetchBalances(USER_ADDRESS)
+          
+          window.clearInterval(id)
+          pollingRef.current = null
+        } else if (signed === false) {
+          setMessage("トランザクションは拒否されました ❌")
+          window.clearInterval(id)
+          pollingRef.current = null
+        }
+        // signed === null の間は待ち続ける
+      } catch (e) {
+        console.error("Error while polling payload status:", e)
+        setMessage("承認ステータスの取得に失敗しました。しばらくしてから再試行してください。")
+        window.clearInterval(id)
+        pollingRef.current = null
+      }
+    }, POLL_INTERVAL_MS)
+
+    pollingRef.current = id
+  }
+
+  // 通貨交換トランザクション作成（POST /api/xumm/exchange）
+  const handleExchange = async () => {
+    setMessage("")
+
+    // 既存ポーリング停止
+    if (pollingRef.current !== null) {
+      window.clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+
     const amount = Number.parseFloat(exchangeAmount)
-    if (isNaN(amount) || amount <= 0) {
+    if (Number.isNaN(amount) || amount <= 0) {
       setMessage("有効な金額を入力してください")
       return
     }
 
-    const jpyIndex = currencies.findIndex((c) => c.name === "日本円")
-    const localIndex = currencies.findIndex((c) => c.name === "地元通貨")
-
-    if (currencies[jpyIndex].amount < amount) {
-      setMessage("日本円が不足しています")
+    if (!hasNJPTrustline) {
+      setMessage("先に NJP のトラストラインを設定してください")
       return
     }
 
-    // 交換実行
-    const newCurrencies = [...currencies]
-    newCurrencies[jpyIndex].amount -= amount
-    const convertedAmount = amount * exchangeRate
-    newCurrencies[localIndex].amount += convertedAmount
-
-    // ボーナス付与（初回のみ）
-    if (!hasReceivedBonus) {
-      newCurrencies[localIndex].amount += 1000
-      setMessage(
-        `交換完了！${convertedAmount.toFixed(0)}NJP + ボーナス1000NJP = ${(convertedAmount + 1000).toFixed(0)}NJP を取得しました！`,
-      )
-      setHasReceivedBonus(true)
-    } else {
-      setMessage(`交換完了！${convertedAmount.toFixed(0)}NJP を取得しました！`)
+     if (!hasXJPTrustline) {
+      setMessage("先に XJP のトラストラインを設定してください")
+      return
     }
 
-    setCurrencies(newCurrencies)
-    setExchangeAmount("")
-  }
+    if (!USER_ADDRESS) {
+      setMessage("ウォレットアドレスが取得できませんでした")
+      return
+    }
 
-  const handleCertificateSelect = (cert: Certificate) => {
-    setSelectedCertificate(cert)
-    setExchangeRate(1.2)
-    setShowCertificates(false)
-    setMessage(`証明書「${cert.code}」を適用しました！交換レートが1:1.2になりました！`)
+    try {
+      setIsLoading(true)
+
+      const res = await fetch(`${API_BASE_URL}/api/xumm/exchange`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fromAddress: USER_ADDRESS,  // 送信元アカウント（ユーザー）
+          toAddress: NJP_ISSUER,      // 受け取り側アカウント（NJPの発行者 = SYSTEM_ADDRESS）
+          fromCurrency: "XJP",
+          fromIssuer: XJP_ISSUER,    // 交換元トークン（XJP）
+          toCurrency: "NJP",
+          toIssuer: NJP_ISSUER,       // 交換先トークン（NJP）
+          baseAmount: amount,         // ベース金額
+          rate: exchangeRate,         // レート
+          userToken: USER_TOKEN,      // XAMANへのプッシュ通知用
+        }),
+      })
+
+      const json = await res.json()
+      if (!json.success) {
+        setMessage(`交換トランザクションの作成に失敗しました: ${json.error ?? "unknown error"}`)
+        return
+      }
+
+      const data = json.data as {
+        uuid: string
+        qrUrl: string
+        deepLink: string
+        fromAddress: string
+        toAddress: string
+        baseAmount: number
+        rate: number
+        exchangeAmount: number
+      }
+
+      setMessage("交換トランザクションを作成しました。XAMAN アプリに通知を送信しました。承認をお願いします。")
+
+      if (!hasReceivedBonus) {
+        setMessage(
+          `交換トランザクションを作成しました！XUMM で承認してください。\n` +
+          `今回は初回交換ボーナスとして +1000 NJP（デモ演出）が付与されます。`,
+        )
+        setHasReceivedBonus(true)
+      } else {
+        setMessage(
+          `交換トランザクションを作成しました！XUMM で承認してください。\n` +
+          `交換額の目安: ${data.exchangeAmount.toFixed(0)} NJP 相当`,
+        )
+      }
+
+      setExchangeAmount("")
+
+      // ポーリング開始（承認/拒否を監視）
+      startPollingPayloadStatus(data.uuid)
+
+      // 本当はトランザクション承認後に再取得するひつようがあるが、
+      // デモとして「すぐ反映」したい場合はここで再取得
+      // await fetchBalances(USER_ADDRESS)
+    } catch (e) {
+      console.error("Error creating exchange payload:", e)
+      setMessage("交換処理中にエラーが発生しました")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -115,7 +540,10 @@ export default function ExchangePage() {
               {showCertificates && (
                 <div className="mt-4 space-y-2 max-h-48 overflow-y-auto bg-amber-50 p-4 rounded-lg border-2 border-amber-300">
                   <p className="text-sm font-semibold text-amber-900 mb-2">証明書を選択してください：</p>
-                  {dummyCertificates.map((cert, index) => (
+                  {certificates.length === 0 && (
+                    <p className="text-xs text-amber-600">利用可能な証明書がありません。</p>
+                  )}
+                  {certificates.map((cert, index) => (
                     <button
                       key={index}
                       onClick={() => handleCertificateSelect(cert)}
@@ -134,7 +562,29 @@ export default function ExchangePage() {
                 <div className="mt-4 p-4 bg-green-100 border-2 border-green-500 rounded-lg">
                   <p className="text-sm font-semibold text-green-800">✓ 適用中の証明書:</p>
                   <p className="font-mono text-sm text-green-900">{selectedCertificate.code}</p>
-                  <p className="text-xs text-green-700 mt-1">交換レート: 1:1.2（20%お得！）</p>
+                  <p className="text-xs text-green-700 mt-1">交換レート: 1:{exchangeRate}（20%お得！）</p>
+                </div>
+              )}
+
+              {hasNJPTrustline !== null && (
+                <div
+                  className={`mt-4 p-3 rounded-lg border-2 text-sm ${hasNJPTrustline
+                    ? "bg-green-50 border-green-400 text-green-800"
+                    : "bg-red-50 border-red-400 text-red-800"
+                    }`}
+                >
+                  {hasNJPTrustline ? "✅ NJP のトラストラインが設定されています。" : "⚠ NJP のトラストラインが未設定です。"}
+                </div>
+              )}
+
+              {hasXJPTrustline !== null && (
+                <div
+                  className={`mt-4 p-3 rounded-lg border-2 text-sm ${hasXJPTrustline
+                    ? "bg-green-50 border-green-400 text-green-800"
+                    : "bg-red-50 border-red-400 text-red-800"
+                    }`}
+                >
+                  {hasXJPTrustline ? "✅ XJP のトラストラインが設定されています。" : "⚠ XJP のトラストラインが未設定です。"}
                 </div>
               )}
             </div>
@@ -175,7 +625,11 @@ export default function ExchangePage() {
                   />
                 </div>
 
-                <WoodenButton onClick={handleExchange} variant="primary" className="w-full text-xl py-4">
+                <WoodenButton onClick={handleSetupTrustline} variant="primary" className="w-full text-xl py-4" disabled={isLoading}>
+                  🔄️ トラストラインを設定する
+                </WoodenButton>
+
+                <WoodenButton onClick={handleExchange} variant="primary" className="w-full text-xl py-4" disabled={isLoading}>
                   💱 交換する
                 </WoodenButton>
 
