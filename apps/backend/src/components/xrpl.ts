@@ -104,3 +104,33 @@ export async function permissionedOffer(tx: xrpl.OfferCreate, seed: string) {
     await client.disconnect();
   }
 }
+
+export async function permissionedDomainSet(tx: xrpl.PermissionedDomainSet, seed: string) {
+  const client = createClient();
+  await client.connect();
+
+  try {
+    // Autofill transaction fields (fee, sequence, etc.)
+    const autofilled = await client.autofill(tx);
+    console.log('Autofilled transaction:', autofilled);
+    // Sign the transaction
+    const wallet = xrpl.Wallet.fromSeed(seed);
+
+
+    // Submit the transaction
+    const result = await client.submit(
+      autofilled,
+      { wallet: wallet }
+    );
+    console.log('Transaction result:', result);
+
+    return result;
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to get account offers: ${errorMessage}`);
+    
+  } finally {
+    await client.disconnect();
+  }
+}
