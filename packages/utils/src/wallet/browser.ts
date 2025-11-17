@@ -182,11 +182,6 @@ export const signTransaction = async (payload: TransactionPayload): Promise<Xumm
       pushed: result.pushed,
     };
 
-    console.log('Transaction payload created:');
-    console.log('UUID:', result.uuid);
-    console.log('QR Code URL:', response.refs.qr_png);
-    console.log('Deep Link:', response.next.always);
-
     return response;
   } catch (error) {
     console.error('Transaction signing failed:', error);

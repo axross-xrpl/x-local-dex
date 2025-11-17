@@ -2,14 +2,13 @@ import { useState, useEffect } from "react"
 import { WoodenButton } from "@repo/ui"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "../../src/context/AuthContext"
-import { createCredentialWithMetadata, acceptCredential } from "@repo/utils"
+import { createCredentialWithMetadata, acceptCredential, hexToString } from "@repo/utils"
 import type { CredentialMetadata } from "@repo/utils/wallet/core"
 
 interface Certificate {
-  code: string
-  date: string
-  txHash?: string
-  uri?: string
+  name: string
+  rate: string
+  expireDate: string
 }
 
 // Predefined metadata for each code
@@ -72,8 +71,6 @@ export default function CertificatePage() {
   const router = useNavigate()
   const { address } = useAuth()
   const [certificates, setCertificates] = useState<Certificate[]>([
-    { code: "CODE1", date: "2024-01-15" },
-    { code: "CODE2", date: "2024-02-20" },
   ])
   const [inputCode, setInputCode] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
@@ -84,6 +81,74 @@ export default function CertificatePage() {
   const [currentPayloadUuid, setCurrentPayloadUuid] = useState("")
   const [currentCode, setCurrentCode] = useState("")
   const [currentUri, setCurrentUri] = useState("")
+
+  const [isCertLoading, setIsCertLoading] = useState(false)
+  const [certError, setCertError] = useState("")
+
+
+  const fetchCertificateInfo = async (uri: string) => {
+    try {
+      const response = await fetch(uri);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Failed to fetch certificate info:', error);
+      return null;
+    }
+  }
+
+  const fetchCertificates = async () => {
+    setIsCertLoading(true)
+    setCertError("")
+    try {
+      const response = await fetch(`http://localhost:3001/api/credentials/${address}`)
+      const data = await response.json()
+      if (data.success && Array.isArray(data.credentials)) {
+        // Fetch rates for all certificates in parallel
+        const fetchedCertificates: Certificate[] = await Promise.all(
+          data.credentials.map(async (cred: any) => {
+            const uri = hexToString(cred.uri) || ""
+            let rate = ""
+            let name = ""
+            let expireDate = ""
+            if (uri) {
+              try {
+                const info = await fetchCertificateInfo(uri)
+                rate = info?.rate || ""
+                name = info?.name || ""
+                expireDate = info?.expireDate || ""
+              } catch {
+                rate = ""
+                name = ""
+                expireDate = ""
+              }
+            }
+            return {
+              name:name,
+              rate: rate,
+              expireDate: expireDate
+            }
+          })
+        )
+        setCertificates(fetchedCertificates)
+        setCertError("")
+      } else {
+        setCertError("証明書の取得に失敗しました")
+      }
+    } catch (e) {
+      setCertError("証明書の取得中にエラーが発生しました")
+    } finally {
+      setIsCertLoading(false)
+    }
+  }
+
+
+  useEffect(() => {
+    if (address) {
+      fetchCertificates();
+    }
+  }, [address]);
+  
 
   useEffect(() => {
     if (showQRModal && currentPayloadUuid) {
@@ -131,7 +196,6 @@ export default function CertificatePage() {
       // Step 1: Upload metadata to IPFS and create credential
       setStatusMessage("🔐 クレデンシャルを作成中...")
       
-      console.log('[CERT-PAGE] Creating credential with metadata...')
       const createResult = await createCredentialWithMetadata(
         address,
         code, // Use code as credential type
@@ -142,7 +206,6 @@ export default function CertificatePage() {
         throw new Error(createResult.error || "Failed to create credential")
       }
 
-      console.log('[CERT-PAGE] Credential created, URI:', createResult.uri)
       setCurrentUri(createResult.uri || "")
       setCurrentCode(code)
 
@@ -154,24 +217,17 @@ export default function CertificatePage() {
       // Step 2: Accept the credential (this will show QR code)
       setStatusMessage("📱 XUMM で資格情報を受け入れ中...")
       
-      console.log('[CERT-PAGE] Accepting credential...')
       const acceptResult = await acceptCredential(
         { isConnected: true, address },
         { credentialType: code }
       )
-
-      console.log('[CERT-PAGE] Accept result:', acceptResult)
 
       if (!acceptResult.success) {
         throw new Error(acceptResult.error || "Failed to accept credential")
       }
 
       // Show QR code modal
-      if (acceptResult.qrUrl && acceptResult.uuid) {
-        console.log('[CERT-PAGE] Showing QR modal')
-        console.log('[CERT-PAGE] QR URL:', acceptResult.qrUrl)
-        console.log('[CERT-PAGE] UUID:', acceptResult.uuid)
-        
+      if (acceptResult.qrUrl && acceptResult.uuid) {        
         setQrCodeUrl(acceptResult.qrUrl)
         setDeepLink(acceptResult.deepLink || "")
         setCurrentPayloadUuid(acceptResult.uuid)
@@ -195,25 +251,11 @@ export default function CertificatePage() {
     setQrCodeUrl("")
     setDeepLink("")
     
-    // Add the certificate to the list
-    if (currentCode && address) {
-      const newCertificate: Certificate = {
-        code: currentCode,
-        date: new Date().toISOString().split("T")[0],
-        uri: currentUri
-      }
-      
-      setCertificates([...certificates, newCertificate])
-      setInputCode("")
-      setStatusMessage(`✅ 証明書 "${currentCode}" が正常に発行されました！`)
-      
-      setTimeout(() => setStatusMessage(""), 5000)
-    }
-    
     setCurrentPayloadUuid("")
     setCurrentCode("")
     setCurrentUri("")
     setIsProcessing(false)
+    fetchCertificates()
   }
 
   return (
@@ -254,27 +296,9 @@ export default function CertificatePage() {
                   >
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-sm text-amber-700 font-semibold">訪問者コード</p>
-                        <p className="text-xl font-mono font-bold text-amber-900">{cert.code}</p>
-                        {cert.txHash && (
-                          <p className="text-xs text-amber-600 mt-1">
-                            TX: {cert.txHash.slice(0, 8)}...
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-amber-700 font-semibold">訪問日</p>
-                        <p className="text-lg font-mono text-amber-900">{cert.date}</p>
-                        {cert.uri && (
-                          <a 
-                            href={cert.uri} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline mt-1 inline-block"
-                          >
-                            詳細を見る →
-                          </a>
-                        )}
+                        <p className="text-xl text-amber-700 font-semibold">{cert.name}</p>
+                        <p className="text-sm font-mono text-amber-900">通貨交換レート {cert.rate}</p>
+                        <p className="text-sm font-mono text-amber-900">効期限 : {cert.expireDate}</p>
                       </div>
                     </div>
                   </div>

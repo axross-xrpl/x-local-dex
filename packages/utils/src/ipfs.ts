@@ -53,9 +53,7 @@ export async function getUrl(cid: string, pinataJwt: string): Promise<string> {
         throw new Error("No CID provided.");
     }
     try {
-        console.log("Retrieving IPFS URL for CID:", cid);
         const response = await pinata.gateways.public.convert(cid);
-        console.log("Retrieved IPFS URL:", response);
         if (!response) {
             throw new Error("Failed to retrieve URL from IPFS.");
         }

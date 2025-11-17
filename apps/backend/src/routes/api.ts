@@ -64,5 +64,23 @@ router.get('/njp/balance/:address', async (req, res) => {
   }
 });
 
+router.get('/credentialinfo/:uri', async (req, res) => {
+  const { uri } = req.params;
+  try {
+    const response = await fetch(uri);
+    const data = await response.json();
+    res.json({
+      success: true,
+      data: data,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
+      success: false,
+      error: `Failed to retrieve credential info: ${errorMessage}`,
+    });
+  }
+});
+
 
 export default router;
