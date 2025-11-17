@@ -6,7 +6,7 @@ export interface TrustlineInfo {
 }
 
 // 現段階では NJP のみ対応
-export const TARGET_TRUSTLINE_CURRENCIES = ["NJP"] as const;
+export const TARGET_TRUSTLINE_CURRENCIES = ["NJP","XJP"] as const;
 
 export type TargetTrustlineCurrency =
   (typeof TARGET_TRUSTLINE_CURRENCIES)[number];

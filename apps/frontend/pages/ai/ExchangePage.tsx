@@ -17,10 +17,10 @@ interface Certificate {
 }
 
 // TODO: 実際にはウォレットやコンテキストから取得する
-const USER_ADDRESS = "rJv2hreZ4JK7aad3k4swdki2EDqbeZ4ZZn"
+const USER_ADDRESS = "rfiib1TjGx96EJPGvYRyc62jWZphox2An7"
 
 // TODO: 実際の userToken（XAMAN / XUMM連携時に得られる user_token）を取得するように変更する
-const USER_TOKEN = "YOUR_XAMAN_USER_TOKEN_HERE"
+const USER_TOKEN = "NJP"
 
 // XJP Issuer
 const XJP_ISSUER = "rEe8Yj3hfGpa3nGypC1MJoV7B99Hz3i8at"
@@ -53,6 +53,7 @@ export default function ExchangePage() {
 
   // トラストライン
   const [hasNJPTrustline, setHasNJPTrustline] = useState<boolean | null>(null)
+  const [hasXJPTrustline, setHasXJPTrustline] = useState<boolean | null>(null)
 
   // 状態＆メッセージ
   const [message, setMessage] = useState("")
@@ -140,10 +141,12 @@ export default function ExchangePage() {
       const data = json.data as {
         address: string
         hasNJP: boolean
+        hasXJP: boolean
         trustlines: { currency: string; issuer: string; balance: string; limit: string }[]
       }
 
       setHasNJPTrustline(data.hasNJP)
+      setHasXJPTrustline(data.hasXJP)
     } catch (e) {
       console.error("Error fetching trustlines:", e)
     }
@@ -244,14 +247,15 @@ export default function ExchangePage() {
       return
     }
 
-    if (hasNJPTrustline) {
-      setMessage("すでに NJP のトラストラインが設定されています")
+    if (hasNJPTrustline && hasXJPTrustline) {
+      setMessage("すでに NJP & XJP のトラストラインが設定されています")
       return
     }
 
     try {
       setIsLoading(true)
-      const res = await fetch(`${API_BASE_URL}/api/trustlines/payload`, {
+      if (!hasNJPTrustline) {
+        const resNJP = await fetch(`${API_BASE_URL}/api/trustlines/payload`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -265,34 +269,39 @@ export default function ExchangePage() {
           allowRippling: true,
         }),
       })
-
-      if (!res.ok) {
-        const text = await res.text()
-        console.error("HTTP error", res.status, text)
-        setMessage(`サーバーエラーが発生しました: ${res.status}`)
+      const jsonNJP = await resNJP.json()
+      if (!jsonNJP.success) {
+        setMessage(`NJPトラストライン設定失敗: ${jsonNJP.error ?? "unknown error"}`)
         return
       }
+      setMessage("NJPトラストライン設定用トランザクションを作成しました。XAMANで承認してください。")
+      startPollingTrustlineStatus(jsonNJP.data.uuid)
+    }
 
-      const json = await res.json()
-      if (!json.success) {
-        setMessage(`トラストライン設定用ペイロードの作成に失敗しました: ${json.error ?? "unknown error"}`)
+     if (!hasXJPTrustline) {
+        const resXJP = await fetch(`${API_BASE_URL}/api/trustlines/payload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          address: USER_ADDRESS,
+          currency: "XJP",
+          issuer: XJP_ISSUER,
+          limit: 1000000000,
+          userToken: USER_TOKEN,
+          allowRippling: true,
+        }),
+      })
+      const jsonXJP = await resXJP.json()
+      if (!jsonXJP.success) {
+        setMessage(`XJPトラストライン設定失敗: ${jsonXJP.error ?? "unknown error"}`)
         return
       }
+      setMessage("XJPトラストライン設定用トランザクションを作成しました。XAMANで承認してください。")
+      startPollingTrustlineStatus(jsonXJP.data.uuid)
+    }
 
-      const data = json.data as {
-        uuid: string
-        qrUrl: string
-        deepLink: string
-        address: string
-        currency: string
-        issuer: string
-        limit: number
-      }
-
-      setMessage("トラストライン設定用のトランザクションを作成しました。XAMAN アプリに通知を送信しました。承認をお願いします。")
-
-      // ポーリング開始（承認/拒否を監視）
-      startPollingTrustlineStatus(data.uuid)
     } catch (e) {
       console.error("Error creating trustline payload:", e)
       setMessage("トラストライン設定中にエラーが発生しました")
@@ -315,14 +324,14 @@ export default function ExchangePage() {
         const status = await fetchPayloadStatus(uuid)
         const signed = status?.meta?.signed
 
-        if (signed === true) {
+        if (signed === true && status?.meta?.resolved === true) {
           // サイン済み → Ledger上の trustline を再取得
           await fetchTrustlines(USER_ADDRESS)
 
           setMessage("トラストラインが正常に設定されました ✅")
           window.clearInterval(id)
           pollingRef.current = null
-        } else if (signed === false) {
+        } else if ( status?.meta?.resolved === false) {
           setMessage("トラストライン設定は拒否されました ❌")
           window.clearInterval(id)
           pollingRef.current = null
@@ -411,6 +420,11 @@ export default function ExchangePage() {
 
     if (!hasNJPTrustline) {
       setMessage("先に NJP のトラストラインを設定してください")
+      return
+    }
+
+     if (!hasXJPTrustline) {
+      setMessage("先に XJP のトラストラインを設定してください")
       return
     }
 
@@ -560,6 +574,17 @@ export default function ExchangePage() {
                     }`}
                 >
                   {hasNJPTrustline ? "✅ NJP のトラストラインが設定されています。" : "⚠ NJP のトラストラインが未設定です。"}
+                </div>
+              )}
+
+              {hasXJPTrustline !== null && (
+                <div
+                  className={`mt-4 p-3 rounded-lg border-2 text-sm ${hasXJPTrustline
+                    ? "bg-green-50 border-green-400 text-green-800"
+                    : "bg-red-50 border-red-400 text-red-800"
+                    }`}
+                >
+                  {hasXJPTrustline ? "✅ XJP のトラストラインが設定されています。" : "⚠ XJP のトラストラインが未設定です。"}
                 </div>
               )}
             </div>

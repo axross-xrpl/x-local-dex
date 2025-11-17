@@ -9,6 +9,8 @@ const router = express.Router();
 
 const NJP_ISSUER = process.env.SYSTEM_ADDRESS!;
 
+const XJP_ISSUER = process.env.ISSUER_ADDRESS!;
+
 /**
  * 指定アドレスに NJP のトラストラインが設定されているかを確認
  */
@@ -27,13 +29,21 @@ router.get("/trustlines/:address", async (req, res) => {
 
     const { trustlines } = await getAccountTrustlines(address);
 
+    console.log("[BACKEND] Retrieved trustlines:", trustlines);
+
     // NJP ＋ NJP_ISSUER(SYSTEM_ADDRESS) のトラストラインを抽出
     const njpLines = trustlines.filter((t: TrustlineInfo) => {
       const issuer = (t as any).issuer ?? (t as any).account ?? "";
       return t.currency === "NJP" && issuer === NJP_ISSUER;
     });
 
+    const xjpLines = trustlines.filter((t: TrustlineInfo) => {
+      const issuer = (t as any).issuer ?? (t as any).account ?? "";
+      return t.currency === "XJP" && issuer === XJP_ISSUER;
+    });
+
     const hasNJP = njpLines.length > 0;
+    const hasXJP = xjpLines.length > 0;
 
     // no_ripple フラグを見て「リッピリング許可かどうか」を判定
     const hasNJPWithRippling = njpLines.some((t: TrustlineInfo) => {
@@ -47,6 +57,7 @@ router.get("/trustlines/:address", async (req, res) => {
       data: {
         address,
         hasNJP,
+        hasXJP,
         hasNJPWithRippling,
         trustlines,
       },
