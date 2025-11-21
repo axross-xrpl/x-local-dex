@@ -1,4 +1,5 @@
-# X Local DEX
+# LEMONEX
+
 # Product
 LEMONEX (Local E-Money Exchange) は、「地域×ステーブルコイン」の未来を創る、地方創生DEXプラットフォームです。
 

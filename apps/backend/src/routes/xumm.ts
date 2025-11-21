@@ -54,19 +54,19 @@ router.post('/payment', async (req, res) => {
 // Create a payment payload
 router.post('/payment-njp', async (req, res) => {
   const { fromAddress, toAddress, amount } = req.body;
-  
+
   const currency = "NJP";
   // const toAddress = process.env.SYSTEM_ADDRESS;
   const issuerAddress = process.env.SYSTEM_ADDRESS;
 
-  if(!toAddress || !issuerAddress){
+  if (!toAddress || !issuerAddress) {
     console.error("process.env.SYSTEM_ADDRESS is null");
     return;
   }
 
   try {
     const paymentTx = createPaymentTokenTransaction(fromAddress, toAddress, currency, issuerAddress, amount);
-    
+
     const payload = await createPayload(paymentTx);
 
     if (!payload) {
@@ -96,28 +96,28 @@ router.post('/payment-njp', async (req, res) => {
 // Create a payment payload
 router.post('/payment-njp', async (req, res) => {
   const { fromAddress, toAddress, amount } = req.body;
-  
+
   const currency = "NJP";
   // const toAddress = process.env.SYSTEM_ADDRESS;
   const issuerAddress = process.env.SYSTEM_ADDRESS;
 
-  if(!toAddress || !issuerAddress){
+  if (!toAddress || !issuerAddress) {
     console.error("process.env.SYSTEM_ADDRESS is null");
     return;
   }
 
   try {
     const paymentTx = createPaymentTokenTransaction(fromAddress, toAddress, currency, issuerAddress, amount);
-    
+
     const payload = await createPayload(paymentTx);
-    
+
     if (!payload) {
       return res.status(500).json({
         success: false,
         error: 'Failed to create payment payload'
       });
     }
-    
+
     res.json({
       success: true,
       data: {
@@ -178,6 +178,13 @@ router.post("/exchange", async (req, res) => {
     rate,
     userToken
   } = req.body as ExchangeRequestBody;
+
+  console.log(`[BACKEND] /exchange called. from: ${fromAddress}, token provided?: ${!!userToken}`);
+  if (userToken) {
+    console.log(`[BACKEND] Token starts with: ${userToken.substring(0, 10)}...`);
+  } else {
+    console.log(`[BACKEND] No userToken provided from frontend!`);
+  }
 
   try {
     // 必須パラメータチェック

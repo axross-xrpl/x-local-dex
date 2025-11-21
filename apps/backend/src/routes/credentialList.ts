@@ -39,7 +39,7 @@ function normalizeMetadata(raw: any | null): CredentialMetadata | null {
     expireDate: raw["expire-date"] ?? raw.expireDate ?? "",
     type: raw.type ?? undefined,
     location: raw.location ?? "",
-    rate: Number.isNaN(rate) ? 1.0 : rate,
+    rate: Number.isNaN(rate) ? "1.0" : String(rate),
   };
 }
 
@@ -79,17 +79,22 @@ router.get('/credentials/:address', async (req, res) => {
           const isAccepted = (obj.Flags & LSF_ACCEPTED) === LSF_ACCEPTED;
           return isAccepted;
         })
-        .map((obj) => {
+        .map((obj: any) => {
           // Decode URI if present
-          let metadataRaw: any = null;
-          let metadata: CredentialMetadata | null = null;
+          let metadata = null;
+          let uriDecoded = null;
           if (obj.URI) {
             try {
-              const uriDecoded = Buffer.from(obj.URI, 'hex').toString('utf8');
-              metadataRaw = JSON.parse(uriDecoded);
-              metadata = normalizeMetadata(metadataRaw);
+              uriDecoded = Buffer.from(obj.URI, 'hex').toString('utf8');
+              // If it's a valid JSON, parse it; otherwise, just use the string
+              if (uriDecoded.trim().startsWith("{")) {
+                metadata = JSON.parse(uriDecoded);
+              } else {
+                metadata = uriDecoded; // Just a URL or plain string
+              }
             } catch (error) {
               console.error('[BACKEND] Failed to decode URI:', error);
+              metadata = uriDecoded; // fallback to raw string
             }
           }
 
